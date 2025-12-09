@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, Moon, Sun, Monitor, Shuffle, Copy, Type, Plus, Minus, PenTool, Edit3 } from 'lucide-react';
+import { Camera, Moon, Sun, Monitor, Shuffle, Copy, Type, Plus, Minus, PenTool, Edit3, Grid, Layout } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
-import { Block, Suggestion, Theme, TypographySettings, Mode } from './types';
+import { Block, Suggestion, Theme, TypographySettings, Mode, ViewMode } from './types';
 import { parseTextToBlocks, countWords, shuffleArray } from './utils';
 import * as GeminiService from './services/geminiService';
 
@@ -21,6 +21,7 @@ const App: React.FC = () => {
   const [selectedText, setSelectedText] = useState<string>("");
   const [theme, setTheme] = useState<Theme>('system');
   const [mode, setMode] = useState<Mode>('write');
+  const [viewMode, setViewMode] = useState<ViewMode>('normal');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [loading, setLoading] = useState(false);
@@ -54,7 +55,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleSelection = () => {
       // Only process selection in Edit Mode
-      if (mode !== 'edit') {
+      if (mode !== 'edit' || viewMode === 'mini') {
         if (selectionRect) {
             setSelectionRect(null);
             setSelectedText("");
@@ -72,7 +73,6 @@ const App: React.FC = () => {
       }
 
       // Important: Check if we are selecting inside the editor area
-      // Since we use DIVs in edit mode now, we check for our container
       const anchorNode = selection.anchorNode;
       const isEditor = anchorNode?.parentElement?.closest('main');
 
@@ -84,7 +84,6 @@ const App: React.FC = () => {
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       
-      // Safety check for weird zero-rects
       if (rect.width === 0 && rect.height === 0) return;
 
       setSelectionRect({
@@ -94,31 +93,40 @@ const App: React.FC = () => {
       setSelectedText(selection.toString());
     };
 
-    // 'selectionchange' fires on document
     document.addEventListener('selectionchange', handleSelection);
-    // Listen to scroll to update position if dragging selection triggers scroll
     window.addEventListener('scroll', handleSelection);
     
     return () => {
         document.removeEventListener('selectionchange', handleSelection);
         window.removeEventListener('scroll', handleSelection);
     };
-  }, [mode, selectionRect]); // Added selectionRect dep to ensure updates
+  }, [mode, viewMode, selectionRect]); 
 
   // -- Block Management --
   const handleBlockChange = (id: string, newContent: string) => {
     setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: newContent } : b));
   };
 
-  const handleShuffle = () => {
-    // Only shuffle if we have more than 1 block (and not just an empty one)
-    if (blocks.length <= 1) return;
+  const moveBlockUp = (id: string) => {
+    const index = blocks.findIndex(b => b.id === id);
+    if (index > 0) {
+      const newBlocks = [...blocks];
+      [newBlocks[index - 1], newBlocks[index]] = [newBlocks[index], newBlocks[index - 1]];
+      setBlocks(newBlocks);
+    }
+  };
 
-    // Filter out H1s if we want to keep structure? Or just shuffle everything?
-    // User asked to "recognize chapter structure with #". 
-    // Usually you don't shuffle chapters out of order, but maybe paragraphs within chapters.
-    // For simplicity based on "shuffle paragraphs", we shuffle everything for now, 
-    // or we could shuffle only 'p' types. Let's shuffle all for chaos/creativity as requested.
+  const moveBlockDown = (id: string) => {
+    const index = blocks.findIndex(b => b.id === id);
+    if (index < blocks.length - 1) {
+      const newBlocks = [...blocks];
+      [newBlocks[index + 1], newBlocks[index]] = [newBlocks[index], newBlocks[index + 1]];
+      setBlocks(newBlocks);
+    }
+  };
+
+  const handleShuffle = () => {
+    if (blocks.length <= 1) return;
     const newBlocks = shuffleArray([...blocks]);
     setBlocks(newBlocks);
   };
@@ -191,12 +199,7 @@ const App: React.FC = () => {
   };
 
   const applySuggestion = (text: string) => {
-    // If it's a block-level analysis (Sensory/ShowDontTell), replace the whole block
     if (suggestion?.type === 'sensory' || suggestion?.type === 'show-dont-tell') {
-       // We need to find the block that contains the original text if activeBlockId is lost
-       // But usually the buttons are on the block itself.
-       // Let's search by content match if ID is tricky, or just use the block passed to analyze.
-       // Since we didn't store the analyzing block ID in state, we rely on content match which is safer.
        const blockIndex = blocks.findIndex(b => b.content === suggestion.originalText);
        if (blockIndex !== -1) {
            const newBlocks = [...blocks];
@@ -204,11 +207,6 @@ const App: React.FC = () => {
            setBlocks(newBlocks);
        }
     } else {
-      // It's a text selection replacement (Synonym/Grammar)
-      // Find the block containing the original text
-      // Note: This is a simple implementation. If the same text appears multiple times, might replace wrong one.
-      // For a robust app, we'd track block ID with selection.
-      // We will try to replace in the block that was likely selected.
       const block = blocks.find(b => b.content.includes(suggestion?.originalText || ''));
       if (block) {
         const newContent = block.content.replace(suggestion?.originalText || '', text);
@@ -216,7 +214,6 @@ const App: React.FC = () => {
       }
     }
     setSidebarOpen(false);
-    // Clear selection after apply
     window.getSelection()?.removeAllRanges();
     setSelectionRect(null);
   };
@@ -231,7 +228,7 @@ const App: React.FC = () => {
       <div className="fixed inset-0 pointer-events-none opacity-50 dark:opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]"></div>
 
       {/* Header / Nav */}
-      <header className="fixed top-0 left-0 w-full p-6 flex justify-between items-center z-30 bg-gradient-to-b from-paper via-paper/90 to-transparent dark:from-zinc-950 dark:via-zinc-950/90 h-24 pointer-events-none ui-no-select">
+      <header className="fixed top-0 left-0 w-full p-4 md:p-6 flex justify-between items-center z-30 bg-gradient-to-b from-paper via-paper/90 to-transparent dark:from-zinc-950 dark:via-zinc-950/90 h-24 pointer-events-none ui-no-select">
         <div className="pointer-events-auto flex items-center gap-4">
             <h1 className="font-display font-bold text-2xl tracking-wider text-ink dark:text-zinc-100 hidden md:block">InkFlow</h1>
             <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-800 mx-2 hidden md:block"></div>
@@ -239,7 +236,7 @@ const App: React.FC = () => {
             {/* Mode Switcher */}
             <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 shadow-inner border border-zinc-200 dark:border-zinc-700">
                 <button 
-                    onClick={() => { setMode('write'); setSelectionRect(null); }}
+                    onClick={() => { setMode('write'); setViewMode('normal'); setSelectionRect(null); }}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'write' 
                         ? 'bg-white dark:bg-zinc-700 text-ink dark:text-white shadow-sm' 
@@ -259,11 +256,17 @@ const App: React.FC = () => {
                     <Edit3 size={14} /> <span className="hidden sm:inline">Edit</span>
                 </button>
             </div>
-            
-            <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-800 mx-2"></div>
-            <div className="text-xs font-mono text-zinc-500 uppercase tracking-widest">
-                {countWords(blocks)} Words
-            </div>
+
+            {/* View Mode Toggle (Mini) - Only visible when NOT in write mode */}
+            {mode === 'edit' && (
+              <button 
+                onClick={() => setViewMode(viewMode === 'normal' ? 'mini' : 'normal')}
+                className={`p-2 rounded-full transition-colors ${viewMode === 'mini' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200'}`}
+                title="Toggle Mini Overview"
+              >
+                 {viewMode === 'normal' ? <Grid size={18} /> : <Layout size={18} />}
+              </button>
+            )}
         </div>
 
         <div className="pointer-events-auto flex gap-2 sm:gap-3">
@@ -345,17 +348,22 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Editor Area */}
-      <main className="max-w-3xl mx-auto pt-32 pb-48 px-6 md:px-12 relative z-10 min-h-screen">
-        {blocks.map((block) => (
+      <main className={`max-w-3xl mx-auto pt-32 pb-48 px-6 md:px-12 relative z-10 min-h-screen ${viewMode === 'mini' ? 'grid grid-cols-2 md:grid-cols-3 gap-4 auto-rows-min' : ''}`}>
+        {blocks.map((block, index) => (
             <EditorBlock
                 key={block.id}
                 block={block}
                 isActive={activeBlockId === block.id}
                 mode={mode}
+                viewMode={viewMode}
                 onChange={handleBlockChange}
                 onFocus={setActiveBlockId}
                 onAnalyze={handleBlockAnalysis}
+                onMoveUp={moveBlockUp}
+                onMoveDown={moveBlockDown}
                 typography={typography}
+                isFirst={index === 0}
+                isLast={index === blocks.length - 1}
             />
         ))}
 
@@ -374,9 +382,8 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Floating Action Bar (Selection - Edit Mode Only) */}
-      {/* Z-index 50 to ensure it's above text but below modals if any */}
-      {mode === 'edit' && (
+      {/* Floating Action Bar (Selection - Edit Mode Only - Normal View Only) */}
+      {mode === 'edit' && viewMode === 'normal' && (
           <FloatingMenu 
             position={selectionRect}
             onSynonym={() => handleGeminiAction('synonym')}
@@ -394,7 +401,7 @@ const App: React.FC = () => {
         loading={loading}
       />
 
-      {/* Bottom Sticky Toolbar - Raised position (bottom-16/20) for iOS safe area and Z-Index 100 to float above everything */}
+      {/* Bottom Sticky Toolbar */}
       <div className="fixed bottom-16 left-1/2 -translate-x-1/2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-full px-6 py-3 flex items-center gap-6 z-[100] transition-all duration-500 hover:scale-105 ui-no-select">
         <button 
             type="button"

@@ -14,6 +14,8 @@ export type Theme = 'light' | 'dark' | 'system';
 
 export type Mode = 'write' | 'edit';
 
+export type ViewMode = 'normal' | 'mini';
+
 export interface AIState {
   isLoading: boolean;
   error: string | null;
