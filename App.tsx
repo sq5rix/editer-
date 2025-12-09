@@ -55,27 +55,38 @@ const App: React.FC = () => {
     const handleSelection = () => {
       // Only process selection in Edit Mode
       if (mode !== 'edit') {
-        setSelectionRect(null);
-        setSelectedText("");
+        if (selectionRect) {
+            setSelectionRect(null);
+            setSelectedText("");
+        }
         return;
       }
 
       const selection = window.getSelection();
+      
+      // If no selection or empty
       if (!selection || selection.isCollapsed || selection.toString().trim() === '') {
         setSelectionRect(null);
         setSelectedText("");
         return;
       }
 
-      // Check if selection is inside an editor block
+      // Important: Check if we are selecting inside the editor area
+      // Since we use DIVs in edit mode now, we check for our container
       const anchorNode = selection.anchorNode;
-      const isEditor = anchorNode?.parentElement?.tagName === 'TEXTAREA' || anchorNode?.parentElement?.closest('textarea');
+      const isEditor = anchorNode?.parentElement?.closest('main');
 
-      if (!isEditor) return;
+      if (!isEditor) {
+          setSelectionRect(null);
+          return;
+      }
 
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       
+      // Safety check for weird zero-rects
+      if (rect.width === 0 && rect.height === 0) return;
+
       setSelectionRect({
         top: rect.top,
         left: rect.left + (rect.width / 2)
@@ -83,9 +94,16 @@ const App: React.FC = () => {
       setSelectedText(selection.toString());
     };
 
+    // 'selectionchange' fires on document
     document.addEventListener('selectionchange', handleSelection);
-    return () => document.removeEventListener('selectionchange', handleSelection);
-  }, [mode]);
+    // Listen to scroll to update position if dragging selection triggers scroll
+    window.addEventListener('scroll', handleSelection);
+    
+    return () => {
+        document.removeEventListener('selectionchange', handleSelection);
+        window.removeEventListener('scroll', handleSelection);
+    };
+  }, [mode, selectionRect]); // Added selectionRect dep to ensure updates
 
   // -- Block Management --
   const handleBlockChange = (id: string, newContent: string) => {
@@ -93,10 +111,14 @@ const App: React.FC = () => {
   };
 
   const handleShuffle = () => {
-    if (blocks.length <= 1) {
-       // Optional: Add toast notification "Not enough paragraphs to shuffle"
-       return;
-    }
+    // Only shuffle if we have more than 1 block (and not just an empty one)
+    if (blocks.length <= 1) return;
+
+    // Filter out H1s if we want to keep structure? Or just shuffle everything?
+    // User asked to "recognize chapter structure with #". 
+    // Usually you don't shuffle chapters out of order, but maybe paragraphs within chapters.
+    // For simplicity based on "shuffle paragraphs", we shuffle everything for now, 
+    // or we could shuffle only 'p' types. Let's shuffle all for chaos/creativity as requested.
     const newBlocks = shuffleArray([...blocks]);
     setBlocks(newBlocks);
   };
@@ -113,7 +135,6 @@ const App: React.FC = () => {
         try {
           const text = await GeminiService.transcribeImage(base64Data);
           const newBlocks = parseTextToBlocks(text);
-          // If the current document is empty, replace it. Otherwise append.
           if (blocks.length === 1 && blocks[0].content === '') {
              setBlocks(newBlocks);
           } else {
@@ -170,11 +191,24 @@ const App: React.FC = () => {
   };
 
   const applySuggestion = (text: string) => {
+    // If it's a block-level analysis (Sensory/ShowDontTell), replace the whole block
     if (suggestion?.type === 'sensory' || suggestion?.type === 'show-dont-tell') {
-       if (activeBlockId) {
-          handleBlockChange(activeBlockId, text);
+       // We need to find the block that contains the original text if activeBlockId is lost
+       // But usually the buttons are on the block itself.
+       // Let's search by content match if ID is tricky, or just use the block passed to analyze.
+       // Since we didn't store the analyzing block ID in state, we rely on content match which is safer.
+       const blockIndex = blocks.findIndex(b => b.content === suggestion.originalText);
+       if (blockIndex !== -1) {
+           const newBlocks = [...blocks];
+           newBlocks[blockIndex] = { ...newBlocks[blockIndex], content: text };
+           setBlocks(newBlocks);
        }
     } else {
+      // It's a text selection replacement (Synonym/Grammar)
+      // Find the block containing the original text
+      // Note: This is a simple implementation. If the same text appears multiple times, might replace wrong one.
+      // For a robust app, we'd track block ID with selection.
+      // We will try to replace in the block that was likely selected.
       const block = blocks.find(b => b.content.includes(suggestion?.originalText || ''));
       if (block) {
         const newContent = block.content.replace(suggestion?.originalText || '', text);
@@ -182,12 +216,15 @@ const App: React.FC = () => {
       }
     }
     setSidebarOpen(false);
+    // Clear selection after apply
+    window.getSelection()?.removeAllRanges();
+    setSelectionRect(null);
   };
 
   // -- Layout --
   return (
     <div 
-      className="min-h-screen relative font-sans selection:bg-amber-200 dark:selection:bg-amber-900/50"
+      className="min-h-screen relative font-sans selection:bg-amber-200 dark:selection:bg-amber-900/50 touch-manipulation"
     >
       
       {/* Background Ambience */}
@@ -202,8 +239,8 @@ const App: React.FC = () => {
             {/* Mode Switcher */}
             <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 shadow-inner border border-zinc-200 dark:border-zinc-700">
                 <button 
-                    onClick={() => setMode('write')}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all ${
+                    onClick={() => { setMode('write'); setSelectionRect(null); }}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'write' 
                         ? 'bg-white dark:bg-zinc-700 text-ink dark:text-white shadow-sm' 
                         : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
@@ -213,7 +250,7 @@ const App: React.FC = () => {
                 </button>
                 <button 
                     onClick={() => setMode('edit')}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all ${
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'edit' 
                         ? 'bg-white dark:bg-zinc-700 text-amber-600 dark:text-amber-400 shadow-sm' 
                         : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
@@ -234,7 +271,7 @@ const App: React.FC = () => {
              <div className="relative">
                 <button 
                   onClick={() => { setShowTypeMenu(!showTypeMenu); setShowThemeMenu(false); }} 
-                  className={`p-3 rounded-full transition-all ${showTypeMenu ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
+                  className={`p-3 rounded-full transition-all touch-manipulation ${showTypeMenu ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
                 >
                     <Type size={20} />
                 </button>
@@ -287,7 +324,7 @@ const App: React.FC = () => {
              <div className="relative">
                 <button 
                   onClick={() => { setShowThemeMenu(!showThemeMenu); setShowTypeMenu(false); }} 
-                  className={`p-3 rounded-full transition-all ${showThemeMenu ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
+                  className={`p-3 rounded-full transition-all touch-manipulation ${showThemeMenu ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
                 >
                     {theme === 'light' && <Sun size={20} />}
                     {theme === 'dark' && <Moon size={20} />}
@@ -308,7 +345,7 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Editor Area */}
-      <main className="max-w-3xl mx-auto pt-32 pb-40 px-6 md:px-12 relative z-10 min-h-screen">
+      <main className="max-w-3xl mx-auto pt-32 pb-48 px-6 md:px-12 relative z-10 min-h-screen">
         {blocks.map((block) => (
             <EditorBlock
                 key={block.id}
@@ -338,6 +375,7 @@ const App: React.FC = () => {
       </main>
 
       {/* Floating Action Bar (Selection - Edit Mode Only) */}
+      {/* Z-index 50 to ensure it's above text but below modals if any */}
       {mode === 'edit' && (
           <FloatingMenu 
             position={selectionRect}
@@ -356,38 +394,41 @@ const App: React.FC = () => {
         loading={loading}
       />
 
-      {/* Bottom Sticky Toolbar - Raised position (bottom-12) for iOS */}
-      <div className="fixed bottom-12 left-1/2 -translate-x-1/2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-lg border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-full px-6 py-3 flex items-center gap-6 z-40 transition-all duration-500 hover:scale-105 ui-no-select">
+      {/* Bottom Sticky Toolbar - Raised position (bottom-16/20) for iOS safe area and Z-Index 100 to float above everything */}
+      <div className="fixed bottom-16 left-1/2 -translate-x-1/2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-full px-6 py-3 flex items-center gap-6 z-[100] transition-all duration-500 hover:scale-105 ui-no-select">
         <button 
+            type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex flex-col items-center gap-1 group text-zinc-500 hover:text-ink dark:hover:text-zinc-200 transition-colors"
+            className="flex flex-col items-center gap-1 group text-zinc-500 hover:text-ink dark:hover:text-zinc-200 transition-colors touch-manipulation"
             title="Import Handwriting"
         >
-            <Camera size={20} className="group-hover:-translate-y-1 transition-transform duration-300" />
+            <Camera size={22} className="group-hover:-translate-y-1 transition-transform duration-300" />
             <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
         </button>
 
         <div className="w-px h-8 bg-zinc-200 dark:bg-zinc-800"></div>
 
         <button 
+            type="button"
             onClick={handleShuffle}
-            className={`flex flex-col items-center gap-1 group transition-colors ${blocks.length > 1 ? 'text-zinc-500 hover:text-ink dark:hover:text-zinc-200' : 'text-zinc-300 dark:text-zinc-700 cursor-not-allowed'}`}
+            className={`flex flex-col items-center gap-1 group transition-colors touch-manipulation ${blocks.length > 1 ? 'text-zinc-500 hover:text-ink dark:hover:text-zinc-200' : 'text-zinc-300 dark:text-zinc-700 cursor-not-allowed'}`}
             title="Shuffle Paragraphs"
         >
-            <Shuffle size={20} className="group-hover:rotate-180 transition-transform duration-500 ease-out" />
+            <Shuffle size={22} className="group-hover:rotate-180 transition-transform duration-500 ease-out" />
         </button>
 
         <div className="w-px h-8 bg-zinc-200 dark:bg-zinc-800"></div>
 
         <button 
+            type="button"
             onClick={() => {
                 const fullText = blocks.map(b => b.content).join('\n\n');
                 navigator.clipboard.writeText(fullText);
             }}
-            className="flex flex-col items-center gap-1 group text-zinc-500 hover:text-ink dark:hover:text-zinc-200 transition-colors"
+            className="flex flex-col items-center gap-1 group text-zinc-500 hover:text-ink dark:hover:text-zinc-200 transition-colors touch-manipulation"
             title="Copy All"
         >
-            <Copy size={20} className="group-hover:-translate-y-1 transition-transform duration-300" />
+            <Copy size={22} className="group-hover:-translate-y-1 transition-transform duration-300" />
         </button>
       </div>
 

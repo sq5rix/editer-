@@ -70,23 +70,14 @@
       button {
         -webkit-touch-callout: none;
       }
+      
+      /* Specific class to allow selection but hide the native toolbar/magnifier on iOS */
+      /* Note: This is a bit aggressive but helps favor custom menus */
+      .no-callout {
+          -webkit-touch-callout: none;
+      }
     </style>
   <script type="importmap">
 {
   "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.32.0",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
-    "uuid": "https://aistudiocdn.com/uuid@^13.0.0",
-    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.25",
-    "react-textarea-autosize": "https://aistudiocdn.com/react-textarea-autosize@^8.5.9"
-  }
-}
-</script>
-</head>
-  <body class="bg-paper text-ink dark:bg-zinc-950 dark:text-zinc-200 transition-colors duration-500 overflow-x-hidden">
-    <div id="root"></div>
-  </body>
-</html>
+    "react": "https://aistudiocdn.com/react@^19.2
