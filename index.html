@@ -41,9 +41,7 @@
         transition: background-color 0.5s ease, color 0.5s ease;
         -webkit-tap-highlight-color: transparent;
         touch-action: manipulation;
-        overscroll-behavior-y: none; /* Prevent rubber banding */
       }
-      
       /* Hide scrollbar for clean UI */
       ::-webkit-scrollbar {
         width: 8px;
@@ -68,23 +66,15 @@
         user-select: none;
       }
 
-      /* Forcefully hide the iOS Callout (Copy/Paste/Magnifier) */
-      * {
-        -webkit-touch-callout: none !important;
+      /* Prevent iOS callouts on UI buttons */
+      button {
+        -webkit-touch-callout: none;
       }
-
-      /* Allow text selection in editor but try to suppress menu via event prevention in JS */
-      .editor-content {
-        -webkit-user-select: text;
-        user-select: text;
-        cursor: text;
-      }
-
-      /* In Mini Mode, text shouldn't be selectable, just the block */
-      .mini-mode-text {
-        -webkit-user-select: none;
-        user-select: none;
-        pointer-events: none;
+      
+      /* Specific class to allow selection but hide the native toolbar/magnifier on iOS */
+      /* Note: This is a bit aggressive but helps favor custom menus */
+      .no-callout {
+          -webkit-touch-callout: none;
       }
     </style>
   <script type="importmap">

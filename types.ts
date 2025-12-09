@@ -12,9 +12,7 @@ export interface Suggestion {
 
 export type Theme = 'light' | 'dark' | 'system';
 
-export type Mode = 'write' | 'edit';
-
-export type ViewMode = 'normal' | 'mini';
+export type Mode = 'write' | 'edit' | 'shuffle';
 
 export interface AIState {
   isLoading: boolean;
