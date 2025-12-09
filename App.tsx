@@ -353,7 +353,7 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Editor Area */}
-      <main className={`max-w-3xl mx-auto pt-32 pb-48 px-6 md:px-12 relative z-10 min-h-screen ${mode === 'shuffle' ? 'grid grid-cols-2 gap-4' : ''}`}>
+      <main className={`max-w-3xl mx-auto pt-32 pb-48 px-6 md:px-12 relative z-10 min-h-screen ${mode === 'shuffle' ? 'flex flex-col gap-4' : ''}`}>
         {blocks.map((block) => (
             <EditorBlock
                 key={block.id}
