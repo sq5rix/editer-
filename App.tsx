@@ -25,6 +25,10 @@ const App: React.FC = () => {
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [loading, setLoading] = useState(false);
   
+  // Context Menu State for Shuffle Mode
+  const [menuMode, setMenuMode] = useState<'selection' | 'block'>('selection');
+  const [contextBlockId, setContextBlockId] = useState<string | null>(null);
+  
   // Settings Menus
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [showTypeMenu, setShowTypeMenu] = useState(false);
@@ -55,9 +59,13 @@ const App: React.FC = () => {
     const handleSelection = () => {
       // Only process selection in Edit Mode
       if (mode !== 'edit') {
-        if (selectionRect) {
-            setSelectionRect(null);
-            setSelectedText("");
+        if (mode === 'write') {
+             // In write mode, we generally don't show the menu unless explicitly requested, 
+             // but here we just clear it to be safe
+             if (menuMode === 'selection' && selectionRect) {
+                 setSelectionRect(null);
+                 setSelectedText("");
+             }
         }
         return;
       }
@@ -92,6 +100,7 @@ const App: React.FC = () => {
         left: rect.left + (rect.width / 2)
       });
       setSelectedText(selection.toString());
+      setMenuMode('selection');
     };
 
     // 'selectionchange' fires on document
@@ -102,7 +111,7 @@ const App: React.FC = () => {
         document.removeEventListener('selectionchange', handleSelection);
         window.removeEventListener('scroll', handleSelection);
     };
-  }, [mode, selectionRect]);
+  }, [mode, selectionRect, menuMode]);
 
   // -- Block Management --
   const handleBlockChange = (id: string, newContent: string) => {
@@ -166,6 +175,19 @@ const App: React.FC = () => {
     }
   };
 
+  // -- Interaction Handlers for Shuffle Mode --
+  const handleShuffleSelect = (id: string) => {
+      setActiveBlockId(id);
+      setMode('write');
+      setSelectionRect(null); // Close any open menu
+  };
+
+  const handleShuffleContextMenu = (id: string, position: { top: number; left: number }) => {
+      setContextBlockId(id);
+      setSelectionRect(position);
+      setMenuMode('block');
+  };
+
   // -- AI Features --
   const handleGeminiAction = async (action: 'synonym' | 'expand' | 'grammar') => {
     if (!selectedText) return;
@@ -173,6 +195,7 @@ const App: React.FC = () => {
     setLoading(true);
     setSidebarOpen(true);
     setSuggestion(null);
+    setSelectionRect(null); // Hide menu while processing
 
     let results: string[] = [];
     
@@ -195,6 +218,7 @@ const App: React.FC = () => {
     setLoading(true);
     setSidebarOpen(true);
     setSuggestion(null);
+    setSelectionRect(null); // Hide menu
 
     const results = await GeminiService.analyzeParagraph(block.content, type);
     
@@ -230,6 +254,12 @@ const App: React.FC = () => {
   return (
     <div 
       className="min-h-screen relative font-sans selection:bg-amber-200 dark:selection:bg-amber-900/50 touch-manipulation"
+      // Clear menu if clicking elsewhere
+      onClick={(e) => {
+          if (selectionRect && (e.target as HTMLElement).tagName !== 'BUTTON') {
+              setSelectionRect(null);
+          }
+      }}
     >
       
       {/* Background Ambience */}
@@ -254,7 +284,7 @@ const App: React.FC = () => {
                     <PenTool size={14} /> <span className="hidden sm:inline">Write</span>
                 </button>
                 <button 
-                    onClick={() => { setMode('edit'); }}
+                    onClick={() => { setMode('edit'); setSelectionRect(null); }}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'edit' 
                         ? 'bg-white dark:bg-zinc-700 text-amber-600 dark:text-amber-400 shadow-sm' 
@@ -374,6 +404,8 @@ const App: React.FC = () => {
                     onFocus={() => {}}
                     onAnalyze={() => {}}
                     typography={typography}
+                    onShuffleSelect={handleShuffleSelect}
+                    onShuffleContextMenu={handleShuffleContextMenu}
                 />
               ))}
            </Reorder.Group>
@@ -410,13 +442,16 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Floating Action Bar (Selection - Edit Mode Only) */}
-      {mode === 'edit' && (
+      {/* Floating Action Bar / Context Menu */}
+      {(mode === 'edit' || (mode === 'shuffle' && menuMode === 'block')) && (
           <FloatingMenu 
             position={selectionRect}
+            menuType={menuMode}
             onSynonym={() => handleGeminiAction('synonym')}
             onExpand={() => handleGeminiAction('expand')}
             onGrammar={() => handleGeminiAction('grammar')}
+            onSensory={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'sensory')}
+            onShowDontTell={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'show-dont-tell')}
           />
       )}
 

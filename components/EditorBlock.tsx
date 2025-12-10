@@ -15,6 +15,7 @@ interface EditorBlockProps {
   typography: TypographySettings;
   isSwapSource?: boolean;
   onShuffleSelect?: (id: string) => void;
+  onShuffleContextMenu?: (id: string, position: { top: number; left: number }) => void;
 }
 
 const EditorBlock: React.FC<EditorBlockProps> = ({ 
@@ -22,14 +23,20 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   isActive, 
   mode, 
   onChange, 
-  onPaste,
+  onPaste, 
   onFocus, 
   onAnalyze, 
   typography,
+  onShuffleSelect,
+  onShuffleContextMenu
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dragControls = useDragControls();
+
+  // Pointer handling for Shuffle Mode (Tap vs Long Press)
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startPos = useRef<{ x: number; y: number } | null>(null);
 
   // Auto-focus textarea when switching to write mode if active
   useEffect(() => {
@@ -40,6 +47,8 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
         if (val) {
           textareaRef.current.setSelectionRange(val.length, val.length);
         }
+        // Scroll into view
+        textareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 50);
     }
   }, [mode, isActive]);
@@ -64,6 +73,48 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
       : 'text-zinc-800 dark:text-zinc-300'
   }`;
 
+  // --- SHUFFLE MODE EVENT HANDLERS ---
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (mode !== 'shuffle') return;
+    
+    // Ignore clicks on the drag handle
+    const target = e.target as HTMLElement;
+    if (target.closest('.drag-handle')) return;
+
+    startPos.current = { x: e.clientX, y: e.clientY };
+    
+    pressTimer.current = setTimeout(() => {
+        // Long Press detected
+        if (onShuffleContextMenu && startPos.current) {
+            onShuffleContextMenu(block.id, { top: e.clientY, left: e.clientX });
+        }
+        startPos.current = null; // Clear to prevent click trigger
+    }, 500);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+      if (!startPos.current) return;
+      
+      const moveX = Math.abs(e.clientX - startPos.current.x);
+      const moveY = Math.abs(e.clientY - startPos.current.y);
+      
+      // If moved more than 10px, treat as scroll/drag and cancel clicks/long-press
+      if (moveX > 10 || moveY > 10) {
+          if (pressTimer.current) clearTimeout(pressTimer.current);
+          startPos.current = null;
+      }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+      if (pressTimer.current) clearTimeout(pressTimer.current);
+      
+      // If startPos is still set, it means no long-press fired and no scroll occurred
+      if (startPos.current) {
+          if (onShuffleSelect) onShuffleSelect(block.id);
+      }
+      startPos.current = null;
+  };
+
   // --- SHUFFLE MODE RENDER (REORDER ITEM) ---
   if (mode === 'shuffle') {
     return (
@@ -75,17 +126,23 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         whileDrag={{ scale: 1.02, boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)" }}
-        className="relative p-4 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm flex items-start gap-4 ui-no-select"
+        className="relative p-4 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm flex items-start gap-4 ui-no-select touch-pan-y"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
       >
         <div 
-          className="mt-1 cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors p-1 touch-none select-none"
+          className="drag-handle mt-1 cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors p-1 touch-none select-none"
           onPointerDown={(e) => dragControls.start(e)}
         >
            <GripVertical size={20} />
         </div>
         
-        <div className="flex-1 min-w-0">
-          <div className="text-sm text-zinc-600 dark:text-zinc-400 font-serif leading-relaxed line-clamp-3 pointer-events-none">
+        <div className="flex-1 min-w-0 pointer-events-none">
+          {/* Note: pointer-events-none on content to allow parent div to catch events, 
+              but text selection in shuffle mode is disabled anyway by ui-no-select on parent */}
+          <div className="text-sm text-zinc-600 dark:text-zinc-400 font-serif leading-relaxed line-clamp-3">
               {block.content || <span className="italic opacity-50">Empty block...</span>}
           </div>
         </div>
