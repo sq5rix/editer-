@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, Moon, Sun, Monitor, Copy, Type, Plus, Minus, PenTool, Edit3, Shuffle } from 'lucide-react';
+import { Camera, Moon, Sun, Monitor, Copy, Type, Plus, Minus, PenTool, Edit3, Shuffle, LayoutGrid } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -27,6 +27,7 @@ const App: React.FC = () => {
   
   // Shuffle State
   const [swapSourceId, setSwapSourceId] = useState<string | null>(null);
+  const [shuffleDensity, setShuffleDensity] = useState<number>(2);
   
   // Settings Menus
   const [showThemeMenu, setShowThemeMenu] = useState(false);
@@ -219,6 +220,14 @@ const App: React.FC = () => {
     setSelectionRect(null);
   };
 
+  // -- Grid Classes Helper --
+  const getGridClasses = () => {
+    if (shuffleDensity === 1) return 'grid-cols-1 max-w-3xl';
+    if (shuffleDensity === 2) return 'grid-cols-1 sm:grid-cols-2 max-w-5xl';
+    if (shuffleDensity === 3) return 'grid-cols-1 md:grid-cols-3 max-w-7xl';
+    return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 max-w-[1920px]';
+  };
+
   // -- Layout --
   return (
     <div 
@@ -267,9 +276,30 @@ const App: React.FC = () => {
                     <Shuffle size={14} /> <span className="hidden sm:inline">Shuffle</span>
                 </button>
             </div>
+
+            {/* Shuffle Zoom Slider */}
+            {mode === 'shuffle' && (
+              <motion.div 
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="hidden sm:flex items-center gap-3 bg-zinc-100 dark:bg-zinc-800 rounded-full px-4 py-1.5 border border-zinc-200 dark:border-zinc-700 ml-2"
+              >
+                 <LayoutGrid size={14} className="text-zinc-500" />
+                 <input 
+                   type="range" 
+                   min="1" 
+                   max="4" 
+                   step="1" 
+                   value={shuffleDensity} 
+                   onChange={(e) => setShuffleDensity(parseInt(e.target.value))}
+                   className="w-24 h-1 bg-zinc-300 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                   title="Adjust grid density"
+                 />
+              </motion.div>
+            )}
             
             <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-800 mx-2"></div>
-            <div className="text-xs font-mono text-zinc-500 uppercase tracking-widest">
+            <div className="text-xs font-mono text-zinc-500 uppercase tracking-widest hidden sm:block">
                 {countWords(blocks)} Words
             </div>
         </div>
@@ -353,7 +383,11 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Editor Area */}
-      <main className={`max-w-3xl mx-auto pt-32 pb-48 px-6 md:px-12 relative z-10 min-h-screen ${mode === 'shuffle' ? 'flex flex-col gap-4' : ''}`}>
+      <main className={`mx-auto pt-32 pb-48 px-6 md:px-12 relative z-10 min-h-screen transition-all duration-300 ${
+        mode === 'shuffle' 
+          ? `grid gap-6 items-start content-start ${getGridClasses()}` 
+          : 'max-w-3xl flex flex-col'
+      }`}>
         {blocks.map((block) => (
             <EditorBlock
                 key={block.id}

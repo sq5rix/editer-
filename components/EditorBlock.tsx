@@ -73,17 +73,18 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
         whileTap={{ scale: 0.98 }}
         onClick={() => onShuffleSelect && onShuffleSelect(block.id)}
         className={`
-          relative p-6 rounded-xl cursor-pointer transition-all duration-200 my-4 ui-no-select group
+          relative p-4 rounded-xl cursor-pointer transition-all duration-200 ui-no-select group h-full flex flex-col
           ${isSwapSource 
-            ? 'bg-amber-100 dark:bg-amber-900/30 ring-2 ring-amber-500 shadow-lg scale-[1.02]' 
+            ? 'bg-amber-100 dark:bg-amber-900/30 ring-2 ring-amber-500 shadow-lg scale-[1.02] z-10' 
             : 'bg-white dark:bg-zinc-800 hover:shadow-md border border-zinc-200 dark:border-zinc-700/50 hover:border-amber-300 dark:hover:border-amber-700'}
         `}
       >
-        <div className="flex items-start justify-between gap-4">
-          <div className={`text-sm ${isSwapSource ? 'text-amber-900 dark:text-amber-100' : 'text-zinc-600 dark:text-zinc-400'} font-serif leading-relaxed line-clamp-3 pointer-events-none`}>
+        <div className="flex items-start justify-between gap-2 mb-2">
+           <GripVertical size={14} className={`shrink-0 ${isSwapSource ? 'text-amber-500' : 'text-zinc-300 dark:text-zinc-600'}`} />
+        </div>
+        
+        <div className={`flex-1 text-sm ${isSwapSource ? 'text-amber-900 dark:text-amber-100' : 'text-zinc-600 dark:text-zinc-400'} font-serif leading-relaxed line-clamp-3 pointer-events-none`}>
             {block.content || <span className="italic opacity-50">Empty block...</span>}
-          </div>
-          <GripVertical size={16} className={`shrink-0 ${isSwapSource ? 'text-amber-500' : 'text-zinc-300 dark:text-zinc-600'}`} />
         </div>
         
         {/* Visual hint for H1 */}
