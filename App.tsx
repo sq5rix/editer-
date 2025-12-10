@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, Moon, Sun, Monitor, Copy, Type, Plus, Minus, PenTool, Edit3, Shuffle, LayoutGrid } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Camera, Moon, Sun, Monitor, Copy, Type, Plus, Minus, PenTool, Edit3, Shuffle } from 'lucide-react';
+import { motion, Reorder } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
 import { Block, Suggestion, Theme, TypographySettings, Mode } from './types';
-import { parseTextToBlocks, countWords, shuffleArray } from './utils';
+import { parseTextToBlocks, countWords } from './utils';
 import * as GeminiService from './services/geminiService';
 
 import EditorBlock from './components/EditorBlock';
@@ -24,10 +24,6 @@ const App: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [loading, setLoading] = useState(false);
-  
-  // Shuffle State
-  const [swapSourceId, setSwapSourceId] = useState<string | null>(null);
-  const [shuffleDensity, setShuffleDensity] = useState<number>(2);
   
   // Settings Menus
   const [showThemeMenu, setShowThemeMenu] = useState(false);
@@ -135,33 +131,11 @@ const App: React.FC = () => {
            newBlockList.splice(index, 1, ...newBlocksData);
         } else {
            // Otherwise, insert the new blocks after the current one
-           // (A more advanced implementation would split the current block at cursor, 
-           // but for "importing" text, appending or splicing after is usually sufficient/safer)
            newBlockList.splice(index + 1, 0, ...newBlocksData);
         }
         
         return newBlockList;
       });
-    }
-  };
-
-  const handleShuffleSelect = (id: string) => {
-    if (swapSourceId === null) {
-      setSwapSourceId(id);
-    } else if (swapSourceId === id) {
-      setSwapSourceId(null); // Deselect
-    } else {
-      // Swap!
-      const sourceIndex = blocks.findIndex(b => b.id === swapSourceId);
-      const targetIndex = blocks.findIndex(b => b.id === id);
-      
-      if (sourceIndex !== -1 && targetIndex !== -1) {
-        const newBlocks = [...blocks];
-        // Standard array swap
-        [newBlocks[sourceIndex], newBlocks[targetIndex]] = [newBlocks[targetIndex], newBlocks[sourceIndex]];
-        setBlocks(newBlocks);
-      }
-      setSwapSourceId(null);
     }
   };
 
@@ -252,14 +226,6 @@ const App: React.FC = () => {
     setSelectionRect(null);
   };
 
-  // -- Grid Classes Helper --
-  const getGridClasses = () => {
-    if (shuffleDensity === 1) return 'grid-cols-1 max-w-3xl';
-    if (shuffleDensity === 2) return 'grid-cols-1 sm:grid-cols-2 max-w-5xl';
-    if (shuffleDensity === 3) return 'grid-cols-1 md:grid-cols-3 max-w-7xl';
-    return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 max-w-[1920px]';
-  };
-
   // -- Layout --
   return (
     <div 
@@ -278,7 +244,7 @@ const App: React.FC = () => {
             {/* Mode Switcher */}
             <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 shadow-inner border border-zinc-200 dark:border-zinc-700">
                 <button 
-                    onClick={() => { setMode('write'); setSelectionRect(null); setSwapSourceId(null); }}
+                    onClick={() => { setMode('write'); setSelectionRect(null); }}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'write' 
                         ? 'bg-white dark:bg-zinc-700 text-ink dark:text-white shadow-sm' 
@@ -288,7 +254,7 @@ const App: React.FC = () => {
                     <PenTool size={14} /> <span className="hidden sm:inline">Write</span>
                 </button>
                 <button 
-                    onClick={() => { setMode('edit'); setSwapSourceId(null); }}
+                    onClick={() => { setMode('edit'); }}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'edit' 
                         ? 'bg-white dark:bg-zinc-700 text-amber-600 dark:text-amber-400 shadow-sm' 
@@ -308,27 +274,6 @@ const App: React.FC = () => {
                     <Shuffle size={14} /> <span className="hidden sm:inline">Shuffle</span>
                 </button>
             </div>
-
-            {/* Shuffle Zoom Slider */}
-            {mode === 'shuffle' && (
-              <motion.div 
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="hidden sm:flex items-center gap-3 bg-zinc-100 dark:bg-zinc-800 rounded-full px-4 py-1.5 border border-zinc-200 dark:border-zinc-700 ml-2"
-              >
-                 <LayoutGrid size={14} className="text-zinc-500" />
-                 <input 
-                   type="range" 
-                   min="1" 
-                   max="4" 
-                   step="1" 
-                   value={shuffleDensity} 
-                   onChange={(e) => setShuffleDensity(parseInt(e.target.value))}
-                   className="w-24 h-1 bg-zinc-300 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                   title="Adjust grid density"
-                 />
-              </motion.div>
-            )}
             
             <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-800 mx-2"></div>
             <div className="text-xs font-mono text-zinc-500 uppercase tracking-widest hidden sm:block">
@@ -415,39 +360,53 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Editor Area */}
-      <main className={`mx-auto pt-32 pb-48 px-6 md:px-12 relative z-10 min-h-screen transition-all duration-300 ${
-        mode === 'shuffle' 
-          ? `grid gap-6 items-start content-start ${getGridClasses()}` 
-          : 'max-w-3xl flex flex-col'
-      }`}>
-        {blocks.map((block) => (
-            <EditorBlock
-                key={block.id}
-                block={block}
-                isActive={activeBlockId === block.id}
-                mode={mode}
-                onChange={handleBlockChange}
-                onPaste={handleBlockPaste}
-                onFocus={setActiveBlockId}
-                onAnalyze={handleBlockAnalysis}
-                typography={typography}
-                isSwapSource={swapSourceId === block.id}
-                onShuffleSelect={handleShuffleSelect}
-            />
-        ))}
+      <main className={`mx-auto pt-32 pb-48 px-6 md:px-12 relative z-10 min-h-screen transition-all duration-300 max-w-3xl flex flex-col`}>
+        {mode === 'shuffle' ? (
+           <Reorder.Group axis="y" values={blocks} onReorder={setBlocks} className="flex flex-col gap-4">
+              {blocks.map((block) => (
+                <EditorBlock
+                    key={block.id}
+                    block={block}
+                    isActive={false}
+                    mode={mode}
+                    onChange={handleBlockChange}
+                    onPaste={handleBlockPaste}
+                    onFocus={() => {}}
+                    onAnalyze={() => {}}
+                    typography={typography}
+                />
+              ))}
+           </Reorder.Group>
+        ) : (
+          <>
+            {blocks.map((block) => (
+                <EditorBlock
+                    key={block.id}
+                    block={block}
+                    isActive={activeBlockId === block.id}
+                    mode={mode}
+                    onChange={handleBlockChange}
+                    onPaste={handleBlockPaste}
+                    onFocus={setActiveBlockId}
+                    onAnalyze={handleBlockAnalysis}
+                    typography={typography}
+                />
+            ))}
 
-        {/* Empty state or add new block hint (Only in Write Mode) */}
-        {mode === 'write' && (
-          <div 
-              onClick={() => {
-                  const newId = uuidv4();
-                  setBlocks([...blocks, { id: newId, type: 'p', content: '' }]);
-                  setActiveBlockId(newId);
-              }}
-              className="h-32 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer group ui-no-select"
-          >
-              <span className="text-zinc-400 font-serif italic group-hover:translate-y-1 transition-transform">Click to add new paragraph...</span>
-          </div>
+            {/* Empty state or add new block hint (Only in Write Mode) */}
+            {mode === 'write' && (
+              <div 
+                  onClick={() => {
+                      const newId = uuidv4();
+                      setBlocks([...blocks, { id: newId, type: 'p', content: '' }]);
+                      setActiveBlockId(newId);
+                  }}
+                  className="h-32 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer group ui-no-select"
+              >
+                  <span className="text-zinc-400 font-serif italic group-hover:translate-y-1 transition-transform">Click to add new paragraph...</span>
+              </div>
+            )}
+          </>
         )}
       </main>
 
