@@ -9,26 +9,10 @@ export const parseTextToBlocks = (text: string): Block[] => {
     .replace(/\r\n/g, '\n')
     .replace(/[\r\u2028\u2029]/g, '\n');
   
-  // Split by newlines (treating multiple newlines as a single break)
-  let segments = normalized.split(/\n+/).filter(line => line.trim() !== '');
-
-  // Heuristic: If parsing resulted in a single large block (> 150 chars),
-  // the user likely pasted a wall of text without explicit newlines.
-  // Attempt to split by sentence endings.
-  if (segments.length === 1 && segments[0].length > 150) {
-     // Regex breakdown:
-     // ([.?!][)"']?)   -> Capture terminator (. ? !) optionally followed by closing quote/paren
-     // \s+             -> One or more whitespace characters
-     // (?=['"]?[A-Z])  -> Lookahead for optional opening quote and an uppercase letter
-     const splitBySentence = segments[0]
-        .replace(/([.?!][)"']?)\s+(?=['"]?[A-Z])/g, "$1\n")
-        .split('\n')
-        .filter(s => s.trim() !== '');
-     
-     if (splitBySentence.length > 1) {
-        segments = splitBySentence;
-     }
-  }
+  // Split by empty lines (double newlines). 
+  // We use a regex that looks for 2 or more newlines (\n\n+), allowing for whitespace in between if any.
+  // This preserves single newlines within a paragraph/block.
+  const segments = normalized.split(/\n\s*\n/).filter(line => line.trim() !== '');
 
   return segments.map(line => ({
     id: uuidv4(),

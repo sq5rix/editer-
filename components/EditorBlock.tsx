@@ -78,7 +78,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
         className="relative p-4 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-sm flex items-start gap-4 ui-no-select"
       >
         <div 
-          className="mt-1 cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors p-1"
+          className="mt-1 cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors p-1 touch-none select-none"
           onPointerDown={(e) => dragControls.start(e)}
         >
            <GripVertical size={20} />
