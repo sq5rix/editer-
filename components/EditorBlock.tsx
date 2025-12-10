@@ -9,6 +9,7 @@ interface EditorBlockProps {
   isActive: boolean;
   mode: Mode;
   onChange: (id: string, newContent: string) => void;
+  onPaste?: (id: string, e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
   onFocus: (id: string) => void;
   onAnalyze: (id: string, type: 'sensory' | 'show-dont-tell') => void;
   typography: TypographySettings;
@@ -21,6 +22,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   isActive, 
   mode, 
   onChange, 
+  onPaste,
   onFocus, 
   onAnalyze, 
   typography,
@@ -135,6 +137,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
           ref={textareaRef}
           value={block.content}
           onChange={(e) => onChange(block.id, e.target.value)}
+          onPaste={(e) => onPaste && onPaste(block.id, e)}
           onFocus={() => onFocus(block.id)}
           style={fontSizeStyle}
           className={`${commonClasses} resize-none`}

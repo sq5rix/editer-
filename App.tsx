@@ -113,6 +113,38 @@ const App: React.FC = () => {
     setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: newContent } : b));
   };
 
+  const handleBlockPaste = (id: string, e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const text = e.clipboardData.getData('text');
+    
+    // Check if the pasted text has structure that needs parsing (newlines or long text)
+    if (text.includes('\n') || text.length > 150) {
+      e.preventDefault();
+      
+      const newBlocksData = parseTextToBlocks(text);
+      if (newBlocksData.length === 0) return;
+
+      setBlocks(prev => {
+        const index = prev.findIndex(b => b.id === id);
+        if (index === -1) return prev;
+
+        const currentBlock = prev[index];
+        const newBlockList = [...prev];
+
+        // If the current block is effectively empty, replace it with the pasted blocks
+        if (currentBlock.content.trim() === '') {
+           newBlockList.splice(index, 1, ...newBlocksData);
+        } else {
+           // Otherwise, insert the new blocks after the current one
+           // (A more advanced implementation would split the current block at cursor, 
+           // but for "importing" text, appending or splicing after is usually sufficient/safer)
+           newBlockList.splice(index + 1, 0, ...newBlocksData);
+        }
+        
+        return newBlockList;
+      });
+    }
+  };
+
   const handleShuffleSelect = (id: string) => {
     if (swapSourceId === null) {
       setSwapSourceId(id);
@@ -395,6 +427,7 @@ const App: React.FC = () => {
                 isActive={activeBlockId === block.id}
                 mode={mode}
                 onChange={handleBlockChange}
+                onPaste={handleBlockPaste}
                 onFocus={setActiveBlockId}
                 onAnalyze={handleBlockAnalysis}
                 typography={typography}
