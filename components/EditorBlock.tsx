@@ -70,8 +70,8 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
 
   const commonClasses = `w-full bg-transparent outline-none border-none transition-all duration-300 ${getFontClass()} ${
     block.type === 'h1' 
-      ? 'font-bold mb-6 mt-8 text-ink dark:text-zinc-100' 
-      : 'text-zinc-800 dark:text-zinc-300'
+      ? 'font-bold mb-6 mt-8 text-black dark:text-white' 
+      : 'text-zinc-900 dark:text-white'
   }`;
 
   // --- SHUFFLE MODE EVENT HANDLERS ---
@@ -144,7 +144,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
           {/* Note: pointer-events-none on content to allow parent div to catch events, 
               but text selection in shuffle mode is disabled anyway by ui-no-select on parent */}
           <div 
-            className="text-sm text-zinc-600 dark:text-zinc-400 font-serif leading-relaxed line-clamp-3"
+            className="text-sm text-zinc-900 dark:text-white font-serif leading-relaxed line-clamp-3"
             style={{ opacity: typography.contrast }}
           >
               {block.content || <span className="italic opacity-50">Empty block...</span>}
