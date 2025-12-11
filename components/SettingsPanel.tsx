@@ -25,7 +25,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm z-50"
+            className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm z-[150]"
           />
           
           {/* Panel */}
@@ -33,10 +33,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             initial={{ opacity: 0, scale: 0.95, y: -20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -20 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 z-50 overflow-hidden"
+            className="fixed top-[45%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md max-h-[85vh] flex flex-col bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-200 dark:border-zinc-800 z-[160] overflow-hidden"
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
+            <div className="flex-none flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
               <div className="flex items-center gap-2 text-zinc-800 dark:text-zinc-100">
                 <Settings size={20} />
                 <h2 className="font-display font-bold text-lg">Editor Settings</h2>
@@ -49,7 +49,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </button>
             </div>
 
-            <div className="p-6 space-y-8">
+            {/* Scrollable Content */}
+            <div className="flex-1 p-6 space-y-8 overflow-y-auto">
               
               {/* Theme Section */}
               <div className="space-y-3">
