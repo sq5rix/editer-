@@ -153,6 +153,11 @@ const App: React.FC = () => {
     setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: newContent } : b));
   };
 
+  const handleBlockDoubleTap = (id: string) => {
+    setActiveBlockId(id);
+    setMode('write');
+  };
+
   const handleBlockPaste = (id: string, e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const text = e.clipboardData.getData('text');
     
@@ -429,6 +434,7 @@ const App: React.FC = () => {
                     onFocus={setActiveBlockId}
                     onAnalyze={handleBlockAnalysis}
                     typography={typography}
+                    onDoubleTap={handleBlockDoubleTap}
                 />
             ))}
 

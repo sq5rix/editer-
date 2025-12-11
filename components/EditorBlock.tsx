@@ -16,6 +16,7 @@ interface EditorBlockProps {
   isSwapSource?: boolean;
   onShuffleSelect?: (id: string) => void;
   onShuffleContextMenu?: (id: string, position: { top: number; left: number }) => void;
+  onDoubleTap?: (id: string) => void;
 }
 
 const EditorBlock: React.FC<EditorBlockProps> = ({ 
@@ -28,7 +29,8 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   onAnalyze, 
   typography,
   onShuffleSelect,
-  onShuffleContextMenu
+  onShuffleContextMenu,
+  onDoubleTap
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -177,6 +179,11 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
       }}
       onClick={() => {
         if (mode === 'write') onFocus(block.id);
+      }}
+      onDoubleClick={(e) => {
+        if (mode === 'edit' && onDoubleTap) {
+          onDoubleTap(block.id);
+        }
       }}
     >
        {/* Active Block Indicator / Margin Actions - ONLY IN EDIT MODE */}
