@@ -62,9 +62,10 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
     }
   };
 
-  const fontSizeStyle = {
+  const textStyle = {
     fontSize: block.type === 'h1' ? `${Math.max(typography.fontSize * 2, 24)}px` : `${typography.fontSize}px`,
     lineHeight: block.type === 'h1' ? '1.2' : '1.8',
+    opacity: typography.contrast, // Apply contrast setting
   };
 
   const commonClasses = `w-full bg-transparent outline-none border-none transition-all duration-300 ${getFontClass()} ${
@@ -142,7 +143,10 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
         <div className="flex-1 min-w-0 pointer-events-none">
           {/* Note: pointer-events-none on content to allow parent div to catch events, 
               but text selection in shuffle mode is disabled anyway by ui-no-select on parent */}
-          <div className="text-sm text-zinc-600 dark:text-zinc-400 font-serif leading-relaxed line-clamp-3">
+          <div 
+            className="text-sm text-zinc-600 dark:text-zinc-400 font-serif leading-relaxed line-clamp-3"
+            style={{ opacity: typography.contrast }}
+          >
               {block.content || <span className="italic opacity-50">Empty block...</span>}
           </div>
         </div>
@@ -165,8 +169,12 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
       className={`relative group transition-all duration-500 ease-in-out my-4 pl-4 md:pl-0 ${
         isActive && mode === 'write'
           ? 'translate-x-0' 
-          : mode === 'edit' ? 'hover:bg-zinc-50 dark:hover:bg-zinc-900/30 rounded-lg -ml-4 pl-4 pr-2 py-2' : 'opacity-80 hover:opacity-100'
+          : mode === 'edit' ? 'hover:bg-zinc-50 dark:hover:bg-zinc-900/30 rounded-lg -ml-4 pl-4 pr-2 py-2' : 'hover:opacity-100'
       }`}
+      style={{ 
+        // If not active and not edit, apply a base opacity, but multiply by contrast setting
+        opacity: (isActive || mode === 'edit') ? 1 : 0.8 
+      }}
       onClick={() => {
         if (mode === 'write') onFocus(block.id);
       }}
@@ -199,14 +207,14 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
           onChange={(e) => onChange(block.id, e.target.value)}
           onPaste={(e) => onPaste && onPaste(block.id, e)}
           onFocus={() => onFocus(block.id)}
-          style={fontSizeStyle}
+          style={textStyle}
           className={`${commonClasses} resize-none`}
           placeholder={block.type === 'h1' ? "Chapter Title..." : "Start writing..."}
         />
       ) : (
         /* Render as a DIV in Edit Mode */
         <div 
-          style={fontSizeStyle}
+          style={textStyle}
           className={`${commonClasses} whitespace-pre-wrap cursor-text selection:bg-amber-200 dark:selection:bg-amber-900/60`}
           onContextMenu={(e) => e.preventDefault()}
         >

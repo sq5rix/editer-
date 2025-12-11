@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, Moon, Sun, Monitor, Copy, Type, Plus, Minus, PenTool, Edit3, Shuffle } from 'lucide-react';
+import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, Settings } from 'lucide-react';
 import { motion, Reorder } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -10,6 +10,7 @@ import * as GeminiService from './services/geminiService';
 import EditorBlock from './components/EditorBlock';
 import FloatingMenu from './components/FloatingMenu';
 import Sidebar from './components/Sidebar';
+import SettingsPanel from './components/SettingsPanel';
 
 const App: React.FC = () => {
   // -- State --
@@ -24,19 +25,20 @@ const App: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [loading, setLoading] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   
+  // Undo History
+  const [history, setHistory] = useState<Block[][]>([]);
+
   // Context Menu State for Shuffle Mode
   const [menuMode, setMenuMode] = useState<'selection' | 'block'>('selection');
   const [contextBlockId, setContextBlockId] = useState<string | null>(null);
   
-  // Settings Menus
-  const [showThemeMenu, setShowThemeMenu] = useState(false);
-  const [showTypeMenu, setShowTypeMenu] = useState(false);
-
   // Typography Settings
   const [typography, setTypography] = useState<TypographySettings>({
     fontFamily: 'serif',
-    fontSize: 18
+    fontSize: 18,
+    contrast: 0.95
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -54,14 +56,35 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
+  // -- Undo Logic --
+  const saveHistory = useCallback(() => {
+    setHistory(prev => {
+      // Limit history to 20 steps to save memory
+      const newHistory = [...prev, blocks];
+      if (newHistory.length > 20) return newHistory.slice(newHistory.length - 20);
+      return newHistory;
+    });
+  }, [blocks]);
+
+  const handleUndo = useCallback(() => {
+    setHistory(prev => {
+      if (prev.length === 0) return prev;
+      const newHistory = [...prev];
+      const previousBlocks = newHistory.pop();
+      if (previousBlocks) {
+        setBlocks(previousBlocks);
+      }
+      return newHistory;
+    });
+  }, []);
+
   // -- Text Selection Logic --
   useEffect(() => {
     const handleSelection = () => {
       // Only process selection in Edit Mode
       if (mode !== 'edit') {
         if (mode === 'write') {
-             // In write mode, we generally don't show the menu unless explicitly requested, 
-             // but here we just clear it to be safe
+             // In write mode, we generally don't show the menu unless explicitly requested
              if (menuMode === 'selection' && selectionRect) {
                  setSelectionRect(null);
                  setSelectedText("");
@@ -124,6 +147,7 @@ const App: React.FC = () => {
     // Check if the pasted text has structure that needs parsing (newlines or long text)
     if (text.includes('\n') || text.length > 150) {
       e.preventDefault();
+      saveHistory(); // Save before paste
       
       const newBlocksData = parseTextToBlocks(text);
       if (newBlocksData.length === 0) return;
@@ -148,6 +172,12 @@ const App: React.FC = () => {
     }
   };
 
+  const handleShuffleReorder = (newBlocks: Block[]) => {
+      // For proper shuffle undo, we ideally save history on drag start, but for simplicity we save on change.
+      // However, reorder triggers frequently. We rely on user manually correcting order or using the dedicated Undo button which captures state snapshots.
+      setBlocks(newBlocks);
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -158,6 +188,7 @@ const App: React.FC = () => {
         const base64 = reader.result as string;
         const base64Data = base64.split(',')[1];
         try {
+          saveHistory(); // Save before OCR import
           const text = await GeminiService.transcribeImage(base64Data);
           const newBlocks = parseTextToBlocks(text);
           if (blocks.length === 1 && blocks[0].content === '') {
@@ -230,7 +261,35 @@ const App: React.FC = () => {
     setLoading(false);
   };
 
+  const handleCustomPrompt = async (prompt: string) => {
+    let textToAnalyze = selectedText;
+    
+    // If no text selected, but contextBlockId exists (from shuffle mode), use that block
+    if (!textToAnalyze && contextBlockId && menuMode === 'block') {
+        const block = blocks.find(b => b.id === contextBlockId);
+        if (block) textToAnalyze = block.content;
+    }
+
+    if (!textToAnalyze) return;
+
+    setLoading(true);
+    setSidebarOpen(true);
+    setSuggestion(null);
+    setSelectionRect(null);
+
+    const results = await GeminiService.customRewrite(textToAnalyze, prompt);
+
+    setSuggestion({
+      type: 'expand', // 'expand' works well as a generic type for the UI (shows "Variations")
+      originalText: textToAnalyze,
+      options: results
+    });
+    setLoading(false);
+  };
+
   const applySuggestion = (text: string) => {
+    saveHistory(); // Save before applying changes
+    
     if (suggestion?.type === 'sensory' || suggestion?.type === 'show-dont-tell') {
        const blockIndex = blocks.findIndex(b => b.content === suggestion.originalText);
        if (blockIndex !== -1) {
@@ -256,6 +315,9 @@ const App: React.FC = () => {
       className="min-h-screen relative font-sans selection:bg-amber-200 dark:selection:bg-amber-900/50 touch-manipulation"
       // Clear menu if clicking elsewhere
       onClick={(e) => {
+          // Don't close if clicking inside the floating menu (buttons, inputs)
+          if ((e.target as HTMLElement).closest('.fixed.z-50')) return;
+          
           if (selectionRect && (e.target as HTMLElement).tagName !== 'BUTTON') {
               setSelectionRect(null);
           }
@@ -312,87 +374,21 @@ const App: React.FC = () => {
         </div>
 
         <div className="pointer-events-auto flex gap-2 sm:gap-3">
-             {/* Typography Menu */}
-             <div className="relative">
-                <button 
-                  onClick={() => { setShowTypeMenu(!showTypeMenu); setShowThemeMenu(false); }} 
-                  className={`p-3 rounded-full transition-all touch-manipulation ${showTypeMenu ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
-                >
-                    <Type size={20} />
-                </button>
-                {showTypeMenu && (
-                    <motion.div 
-                        initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                        className="absolute right-0 top-full mt-2 bg-white dark:bg-zinc-900 shadow-xl rounded-lg p-4 border border-zinc-200 dark:border-zinc-800 flex flex-col gap-4 min-w-[200px]"
-                    >
-                        <div className="flex flex-col gap-2">
-                          <span className="text-xs text-zinc-500 uppercase font-medium">Font Family</span>
-                          <div className="flex gap-1">
-                             <button 
-                                onClick={() => setTypography(prev => ({ ...prev, fontFamily: 'serif' }))}
-                                className={`flex-1 py-2 px-3 text-sm rounded border ${typography.fontFamily === 'serif' ? 'bg-zinc-100 dark:bg-zinc-800 border-zinc-400 dark:border-zinc-600' : 'border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
-                             >
-                                Serif
-                             </button>
-                             <button 
-                                onClick={() => setTypography(prev => ({ ...prev, fontFamily: 'sans' }))}
-                                className={`flex-1 py-2 px-3 text-sm rounded border ${typography.fontFamily === 'sans' ? 'bg-zinc-100 dark:bg-zinc-800 border-zinc-400 dark:border-zinc-600' : 'border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
-                             >
-                                Sans
-                             </button>
-                             <button 
-                                onClick={() => setTypography(prev => ({ ...prev, fontFamily: 'mono' }))}
-                                className={`flex-1 py-2 px-3 text-sm rounded border ${typography.fontFamily === 'mono' ? 'bg-zinc-100 dark:bg-zinc-800 border-zinc-400 dark:border-zinc-600' : 'border-transparent hover:bg-zinc-50 dark:hover:bg-zinc-800/50'}`}
-                             >
-                                Mono
-                             </button>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col gap-2">
-                           <span className="text-xs text-zinc-500 uppercase font-medium">Font Size</span>
-                           <div className="flex items-center justify-between bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-1">
-                              <button onClick={() => setTypography(prev => ({ ...prev, fontSize: Math.max(12, prev.fontSize - 2) }))} className="p-2 hover:bg-white dark:hover:bg-zinc-700 rounded shadow-sm transition-colors">
-                                <Minus size={14} />
-                              </button>
-                              <span className="text-sm font-medium w-8 text-center">{typography.fontSize}</span>
-                              <button onClick={() => setTypography(prev => ({ ...prev, fontSize: Math.min(48, prev.fontSize + 2) }))} className="p-2 hover:bg-white dark:hover:bg-zinc-700 rounded shadow-sm transition-colors">
-                                <Plus size={14} />
-                              </button>
-                           </div>
-                        </div>
-                    </motion.div>
-                )}
-             </div>
-
-             {/* Theme Toggle */}
-             <div className="relative">
-                <button 
-                  onClick={() => { setShowThemeMenu(!showThemeMenu); setShowTypeMenu(false); }} 
-                  className={`p-3 rounded-full transition-all touch-manipulation ${showThemeMenu ? 'bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}
-                >
-                    {theme === 'light' && <Sun size={20} />}
-                    {theme === 'dark' && <Moon size={20} />}
-                    {theme === 'system' && <Monitor size={20} />}
-                </button>
-                {showThemeMenu && (
-                    <motion.div 
-                        initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                        className="absolute right-0 top-full mt-2 bg-white dark:bg-zinc-900 shadow-xl rounded-lg p-2 border border-zinc-200 dark:border-zinc-800 flex flex-col gap-1 min-w-[120px]"
-                    >
-                        <button onClick={() => setTheme('light')} className="flex items-center gap-2 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded text-sm"><Sun size={14}/> Light</button>
-                        <button onClick={() => setTheme('dark')} className="flex items-center gap-2 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded text-sm"><Moon size={14}/> Dark</button>
-                        <button onClick={() => setTheme('system')} className="flex items-center gap-2 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded text-sm"><Monitor size={14}/> System</button>
-                    </motion.div>
-                )}
-             </div>
+             {/* Consolidated Settings Button */}
+             <button 
+               onClick={() => setSettingsOpen(true)} 
+               className="p-3 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-all touch-manipulation text-zinc-600 dark:text-zinc-400 hover:text-ink dark:hover:text-zinc-200"
+               title="Settings"
+             >
+                 <Settings size={20} />
+             </button>
         </div>
       </header>
 
       {/* Main Editor Area */}
       <main className={`mx-auto pt-32 pb-48 px-6 md:px-12 relative z-10 min-h-screen transition-all duration-300 max-w-3xl flex flex-col`}>
         {mode === 'shuffle' ? (
-           <Reorder.Group axis="y" values={blocks} onReorder={setBlocks} className="flex flex-col gap-4">
+           <Reorder.Group axis="y" values={blocks} onReorder={handleShuffleReorder} className="flex flex-col gap-4">
               {blocks.map((block) => (
                 <EditorBlock
                     key={block.id}
@@ -452,6 +448,7 @@ const App: React.FC = () => {
             onGrammar={() => handleGeminiAction('grammar')}
             onSensory={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'sensory')}
             onShowDontTell={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'show-dont-tell')}
+            onCustom={handleCustomPrompt}
           />
       )}
 
@@ -464,8 +461,32 @@ const App: React.FC = () => {
         loading={loading}
       />
 
+      {/* Settings Panel */}
+      <SettingsPanel
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        theme={theme}
+        onThemeChange={setTheme}
+        typography={typography}
+        onTypographyChange={setTypography}
+      />
+
       {/* Bottom Sticky Toolbar */}
       <div className="fixed bottom-16 left-1/2 -translate-x-1/2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-full px-6 py-3 flex items-center gap-6 z-[100] transition-all duration-500 hover:scale-105 ui-no-select">
+        
+        {/* Undo Button */}
+        <button 
+            type="button"
+            onClick={handleUndo}
+            disabled={history.length === 0}
+            className={`flex flex-col items-center gap-1 group transition-colors touch-manipulation ${history.length === 0 ? 'text-zinc-300 dark:text-zinc-700 cursor-not-allowed' : 'text-zinc-500 hover:text-ink dark:hover:text-zinc-200'}`}
+            title="Undo Last Action"
+        >
+            <RotateCcw size={22} className={`${history.length > 0 ? 'group-hover:-rotate-90' : ''} transition-transform duration-300`} />
+        </button>
+
+        <div className="w-px h-8 bg-zinc-200 dark:bg-zinc-800"></div>
+
         <button 
             type="button"
             onClick={() => fileInputRef.current?.click()}

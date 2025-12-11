@@ -21,5 +21,6 @@ export interface AIState {
 
 export interface TypographySettings {
   fontFamily: 'serif' | 'sans' | 'mono';
-  fontSize: number; // in pixels or rem scale
+  fontSize: number; // in pixels
+  contrast: number; // 0.1 to 1.0 opacity value
 }

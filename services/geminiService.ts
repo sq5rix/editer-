@@ -109,3 +109,23 @@ export const analyzeParagraph = async (text: string, type: 'sensory' | 'show-don
     return [];
   }
 };
+
+export const customRewrite = async (text: string, customPrompt: string): Promise<string[]> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: MODEL_TEXT,
+      contents: `Rewrite the following text based strictly on this instruction: "${customPrompt}". Provide 4 distinct variations. Text to rewrite: "${text}". Return ONLY a JSON array of strings.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING }
+        }
+      }
+    });
+    return JSON.parse(response.text || "[]");
+  } catch (error) {
+    console.error("Custom Rewrite Error:", error);
+    return [];
+  }
+};
