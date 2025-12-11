@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, Settings } from 'lucide-react';
+import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings } from 'lucide-react';
 import { motion, Reorder } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -27,8 +27,9 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   
-  // Undo History
+  // Undo/Redo History
   const [history, setHistory] = useState<Block[][]>([]);
+  const [redoStack, setRedoStack] = useState<Block[][]>([]);
 
   // Context Menu State for Shuffle Mode
   const [menuMode, setMenuMode] = useState<'selection' | 'block'>('selection');
@@ -56,7 +57,7 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
-  // -- Undo Logic --
+  // -- Undo/Redo Logic --
   const saveHistory = useCallback(() => {
     setHistory(prev => {
       // Limit history to 20 steps to save memory
@@ -64,19 +65,30 @@ const App: React.FC = () => {
       if (newHistory.length > 20) return newHistory.slice(newHistory.length - 20);
       return newHistory;
     });
+    setRedoStack([]); // Clear redo stack on new action
   }, [blocks]);
 
   const handleUndo = useCallback(() => {
-    setHistory(prev => {
-      if (prev.length === 0) return prev;
-      const newHistory = [...prev];
-      const previousBlocks = newHistory.pop();
-      if (previousBlocks) {
-        setBlocks(previousBlocks);
-      }
-      return newHistory;
-    });
-  }, []);
+    if (history.length === 0) return;
+
+    const previousBlocks = history[history.length - 1];
+    const newHistory = history.slice(0, -1);
+
+    setRedoStack(prev => [...prev, blocks]); // Push current state to Redo
+    setBlocks(previousBlocks);
+    setHistory(newHistory);
+  }, [history, blocks]);
+
+  const handleRedo = useCallback(() => {
+    if (redoStack.length === 0) return;
+
+    const nextBlocks = redoStack[redoStack.length - 1];
+    const newRedo = redoStack.slice(0, -1);
+
+    setHistory(prev => [...prev, blocks]); // Push current to History
+    setBlocks(nextBlocks);
+    setRedoStack(newRedo);
+  }, [redoStack, blocks]);
 
   // -- Text Selection Logic --
   useEffect(() => {
@@ -173,8 +185,7 @@ const App: React.FC = () => {
   };
 
   const handleShuffleReorder = (newBlocks: Block[]) => {
-      // For proper shuffle undo, we ideally save history on drag start, but for simplicity we save on change.
-      // However, reorder triggers frequently. We rely on user manually correcting order or using the dedicated Undo button which captures state snapshots.
+      saveHistory(); // Save before reorder
       setBlocks(newBlocks);
   };
 
@@ -480,9 +491,20 @@ const App: React.FC = () => {
             onClick={handleUndo}
             disabled={history.length === 0}
             className={`flex flex-col items-center gap-1 group transition-colors touch-manipulation ${history.length === 0 ? 'text-zinc-300 dark:text-zinc-700 cursor-not-allowed' : 'text-zinc-500 hover:text-ink dark:hover:text-zinc-200'}`}
-            title="Undo Last Action"
+            title="Undo"
         >
             <RotateCcw size={22} className={`${history.length > 0 ? 'group-hover:-rotate-90' : ''} transition-transform duration-300`} />
+        </button>
+
+        {/* Redo Button */}
+        <button 
+            type="button"
+            onClick={handleRedo}
+            disabled={redoStack.length === 0}
+            className={`flex flex-col items-center gap-1 group transition-colors touch-manipulation ${redoStack.length === 0 ? 'text-zinc-300 dark:text-zinc-700 cursor-not-allowed' : 'text-zinc-500 hover:text-ink dark:hover:text-zinc-200'}`}
+            title="Redo"
+        >
+            <RotateCw size={22} className={`${redoStack.length > 0 ? 'group-hover:rotate-90' : ''} transition-transform duration-300`} />
         </button>
 
         <div className="w-px h-8 bg-zinc-200 dark:bg-zinc-800"></div>
