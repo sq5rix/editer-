@@ -35,6 +35,9 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dragControls = useDragControls();
+  
+  // Ref to track last click time for manual double-tap detection
+  const lastClickTime = useRef<number>(0);
 
   // Pointer handling for Shuffle Mode (Tap vs Long Press)
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -75,6 +78,30 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
       ? 'font-bold mb-6 mt-8 text-black dark:text-white' 
       : 'text-zinc-900 dark:text-white'
   }`;
+
+  // --- CLICK / TAP HANDLER ---
+  const handleClick = (e: React.MouseEvent) => {
+    // 1. Write Mode Logic
+    if (mode === 'write') {
+      onFocus(block.id);
+      return;
+    }
+
+    // 2. Edit Mode Double Tap Logic
+    // We use manual timing because onDoubleClick is inconsistent on some touch devices
+    if (mode === 'edit' && onDoubleTap) {
+      const now = Date.now();
+      const timeDiff = now - lastClickTime.current;
+      
+      if (timeDiff < 300 && timeDiff > 0) {
+        onDoubleTap(block.id);
+        // Reset to avoid triple-click triggering it again immediately
+        lastClickTime.current = 0; 
+      } else {
+        lastClickTime.current = now;
+      }
+    }
+  };
 
   // --- SHUFFLE MODE EVENT HANDLERS ---
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -177,14 +204,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
         // If not active and not edit, apply a base opacity, but multiply by contrast setting
         opacity: (isActive || mode === 'edit') ? 1 : 0.8 
       }}
-      onClick={() => {
-        if (mode === 'write') onFocus(block.id);
-      }}
-      onDoubleClick={(e) => {
-        if (mode === 'edit' && onDoubleTap) {
-          onDoubleTap(block.id);
-        }
-      }}
+      onClick={handleClick}
     >
        {/* Active Block Indicator / Margin Actions - ONLY IN EDIT MODE */}
        <div className={`absolute -left-12 top-0 h-full flex flex-col justify-center items-end gap-2 pr-2 transition-opacity duration-300 ${mode === 'edit' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
