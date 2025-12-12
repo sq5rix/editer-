@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2 } from 'lucide-react';
+import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check } from 'lucide-react';
 import { motion, Reorder } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -27,6 +27,10 @@ const App: React.FC = () => {
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [loading, setLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  
+  // Research State
+  const [researchContext, setResearchContext] = useState("");
+  const [globalCopySuccess, setGlobalCopySuccess] = useState(false);
   
   // Undo/Redo History
   const [history, setHistory] = useState<Block[][]>([]);
@@ -232,6 +236,18 @@ const App: React.FC = () => {
     setBlocks([{ id: newId, type: 'p', content: '' }]);
     setActiveBlockId(newId);
     if (mode === 'shuffle') setMode('write');
+  };
+
+  const handleGlobalCopy = () => {
+    const textToCopy = mode === 'research' 
+        ? researchContext 
+        : blocks.map(b => b.content).join('\n\n');
+    
+    if (textToCopy) {
+        navigator.clipboard.writeText(textToCopy);
+        setGlobalCopySuccess(true);
+        setTimeout(() => setGlobalCopySuccess(false), 2000);
+    }
   };
 
   // -- Interaction Handlers for Shuffle Mode --
@@ -451,29 +467,28 @@ const App: React.FC = () => {
                     <Camera size={18} />
                     <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
                  </button>
-
-                 <button 
-                    onClick={() => {
-                        const fullText = blocks.map(b => b.content).join('\n\n');
-                        navigator.clipboard.writeText(fullText);
-                    }}
-                    className="p-2 rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200 transition-all"
-                    title="Copy All"
-                 >
-                    <Copy size={18} />
-                 </button>
-
-                 <button 
-                    onClick={handleClearText}
-                    className="p-2 rounded-full text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all"
-                    title="Clear Text"
-                 >
-                    <Trash2 size={18} />
-                 </button>
-
-                 <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
                </>
              )}
+
+             <button 
+                onClick={handleGlobalCopy}
+                className={`p-2 rounded-full transition-all ${globalCopySuccess ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200'}`}
+                title="Copy Content"
+             >
+                {globalCopySuccess ? <Check size={18} /> : <Copy size={18} />}
+             </button>
+
+             {mode !== 'research' && (
+               <button 
+                  onClick={handleClearText}
+                  className="p-2 rounded-full text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all"
+                  title="Clear Text"
+               >
+                  <Trash2 size={18} />
+               </button>
+             )}
+
+             <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
 
              {/* Consolidated Settings Button */}
              <button 
@@ -493,8 +508,8 @@ const App: React.FC = () => {
              typography={typography}
              onCopy={(text) => {
                 navigator.clipboard.writeText(text);
-                // Optional: visual feedback handled by button hover state mostly, but system clipboard used
              }} 
+             onActiveContentUpdate={setResearchContext}
           />
         ) : mode === 'shuffle' ? (
            <Reorder.Group axis="y" values={blocks} onReorder={handleShuffleReorder} className="flex flex-col gap-4">

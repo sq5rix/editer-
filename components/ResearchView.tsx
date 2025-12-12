@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ArrowRight, ExternalLink, ChevronLeft, ChevronRight, Plus, Loader2, Copy, MessageSquarePlus, Trash2 } from 'lucide-react';
+import { Search, ArrowRight, ExternalLink, ChevronLeft, ChevronRight, Plus, Loader2, Copy, MessageSquarePlus, Trash2, Check } from 'lucide-react';
 import { ResearchThread, ResearchInteraction, TypographySettings } from '../types';
 import * as GeminiService from '../services/geminiService';
 import { v4 as uuidv4 } from 'uuid';
@@ -8,14 +8,16 @@ import { v4 as uuidv4 } from 'uuid';
 interface ResearchViewProps {
   onCopy: (text: string) => void;
   typography: TypographySettings;
+  onActiveContentUpdate?: (text: string) => void;
 }
 
-const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography }) => {
+const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography, onActiveContentUpdate }) => {
   const [query, setQuery] = useState("");
   const [followUpQuery, setFollowUpQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [threads, setThreads] = useState<ResearchThread[]>([]);
   const [activeThreadIndex, setActiveThreadIndex] = useState<number>(0);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const scrollEndRef = useRef<HTMLDivElement>(null);
 
   // Load from LocalStorage on Mount
@@ -43,6 +45,21 @@ const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography }) => {
        }, 200);
     }
   }, [threads, activeThreadIndex, loading]);
+
+  const activeThread = threads[activeThreadIndex];
+  const isViewingThread = activeThread !== undefined;
+
+  // Broadcast active content to parent for global copy
+  useEffect(() => {
+      if (onActiveContentUpdate) {
+          if (activeThread) {
+               const text = activeThread.interactions.map(i => `## ${i.query}\n\n${i.content}`).join('\n\n---\n\n');
+               onActiveContentUpdate(text);
+          } else {
+               onActiveContentUpdate("");
+          }
+      }
+  }, [activeThread, onActiveContentUpdate]);
 
   const handleNewSearch = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -121,8 +138,11 @@ const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography }) => {
     setActiveThreadIndex(prev => Math.max(0, Math.min(prev, newThreads.length - 1)));
   };
 
-  const activeThread = threads[activeThreadIndex];
-  const isViewingThread = activeThread !== undefined;
+  const handleLocalCopy = (id: string, text: string) => {
+      onCopy(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+  };
 
   return (
     <div className="flex flex-col h-full w-full max-w-3xl mx-auto pt-6">
@@ -248,13 +268,13 @@ const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography }) => {
                         </div>
                       )}
 
-                      <div className="absolute top-8 right-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="absolute top-4 right-4 md:top-8 md:right-8 opacity-50 group-hover:opacity-100 transition-opacity">
                          <button 
-                           onClick={() => onCopy(interaction.content)}
-                           className="p-2 text-zinc-400 hover:text-indigo-600 transition-colors"
+                           onClick={() => handleLocalCopy(interaction.id, interaction.content)}
+                           className={`p-2 transition-colors rounded-lg ${copiedId === interaction.id ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-zinc-400 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-700/50'}`}
                            title="Copy section"
                          >
-                             <Copy size={18} />
+                             {copiedId === interaction.id ? <Check size={18} /> : <Copy size={18} />}
                          </button>
                       </div>
 
