@@ -15,12 +15,20 @@ export interface ResearchSource {
   url: string;
 }
 
-export interface ResearchThread {
+export interface ResearchInteraction {
   id: string;
   query: string;
   content: string;
   sources: ResearchSource[];
   timestamp: number;
+}
+
+export interface ResearchThread {
+  id: string;
+  title: string;
+  interactions: ResearchInteraction[];
+  createdAt: number;
+  lastModified: number;
 }
 
 export type Theme = 'light' | 'dark' | 'system';

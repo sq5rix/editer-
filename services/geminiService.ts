@@ -139,14 +139,29 @@ export const customRewrite = async (text: string, customPrompt: string): Promise
   }
 };
 
-export const researchTopic = async (query: string): Promise<{ content: string; sources: ResearchSource[] }> => {
+export const researchTopic = async (query: string, previousContext: string = ""): Promise<{ content: string; sources: ResearchSource[] }> => {
   try {
+    let prompt = `Research the following topic deeply and provide a comprehensive summary suitable for an editorial writer. 
+      Topic/Question: "${query}". 
+      Format the output in clear Markdown with headers. 
+      Focus on facts, dates, key figures, and interesting details that could be used in a story.`;
+
+    if (previousContext) {
+      prompt = `You are an expert research assistant helping a writer.
+      
+      PREVIOUS CONTEXT:
+      ${previousContext.slice(-2000)} ...
+
+      NEW REQUEST:
+      "${query}"
+
+      Provide a direct and comprehensive answer to the new request, maintaining the context of the previous research. 
+      Format with Markdown.`;
+    }
+
     const response = await ai.models.generateContent({
       model: MODEL_FAST,
-      contents: `Research the following topic deeply and provide a comprehensive summary suitable for an editorial writer. 
-      Topic: "${query}". 
-      Format the output in clear Markdown with headers. 
-      Focus on facts, dates, key figures, and interesting details that could be used in a story.`,
+      contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
       }

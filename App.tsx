@@ -434,6 +434,28 @@ const App: React.FC = () => {
                  </button>
                  
                  <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
+
+                 <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200 transition-all"
+                    title="Import Handwriting"
+                 >
+                    <Camera size={18} />
+                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
+                 </button>
+
+                 <button 
+                    onClick={() => {
+                        const fullText = blocks.map(b => b.content).join('\n\n');
+                        navigator.clipboard.writeText(fullText);
+                    }}
+                    className="p-2 rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200 transition-all"
+                    title="Copy All"
+                 >
+                    <Copy size={18} />
+                 </button>
+
+                 <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
                </>
              )}
 
@@ -449,7 +471,7 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Editor Area */}
-      <main className={`mx-auto pt-32 pb-48 px-6 md:px-12 relative z-10 min-h-screen transition-all duration-300 max-w-3xl flex flex-col`}>
+      <main className={`mx-auto pt-32 pb-24 px-6 md:px-12 relative z-10 min-h-screen transition-all duration-300 max-w-3xl flex flex-col`}>
         {mode === 'research' ? (
           <ResearchView 
              typography={typography}
@@ -542,36 +564,8 @@ const App: React.FC = () => {
         typography={typography}
         onTypographyChange={setTypography}
       />
-
-      {/* Bottom Sticky Toolbar (Hidden in Research Mode) */}
-      {mode !== 'research' && (
-        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-full px-6 py-3 flex items-center gap-6 z-[100] transition-all duration-500 hover:scale-105 ui-no-select">
-          
-          <button 
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex flex-col items-center gap-1 group text-zinc-500 hover:text-ink dark:hover:text-zinc-200 transition-colors touch-manipulation"
-              title="Import Handwriting"
-          >
-              <Camera size={22} className="group-hover:-translate-y-1 transition-transform duration-300" />
-              <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
-          </button>
-
-          <div className="w-px h-8 bg-zinc-200 dark:bg-zinc-800"></div>
-
-          <button 
-              type="button"
-              onClick={() => {
-                  const fullText = blocks.map(b => b.content).join('\n\n');
-                  navigator.clipboard.writeText(fullText);
-              }}
-              className="flex flex-col items-center gap-1 group text-zinc-500 hover:text-ink dark:hover:text-zinc-200 transition-colors touch-manipulation"
-              title="Copy All"
-          >
-              <Copy size={22} className="group-hover:-translate-y-1 transition-transform duration-300" />
-          </button>
-        </div>
-      )}
+      
+      {/* Removed Bottom Toolbar */}
 
     </div>
   );
