@@ -31,9 +31,15 @@ export interface ResearchThread {
   lastModified: number;
 }
 
+export interface BraindumpItem {
+  id: string;
+  content: string;
+  timestamp: number;
+}
+
 export type Theme = 'light' | 'dark' | 'system';
 
-export type Mode = 'research' | 'write' | 'edit' | 'shuffle';
+export type Mode = 'braindump' | 'research' | 'write' | 'edit' | 'shuffle';
 
 export interface AIState {
   isLoading: boolean;

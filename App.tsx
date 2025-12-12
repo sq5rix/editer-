@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check } from 'lucide-react';
+import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain } from 'lucide-react';
 import { motion, Reorder } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -12,6 +12,7 @@ import FloatingMenu from './components/FloatingMenu';
 import Sidebar from './components/Sidebar';
 import SettingsPanel from './components/SettingsPanel';
 import ResearchView from './components/ResearchView';
+import BraindumpView from './components/BraindumpView';
 
 const App: React.FC = () => {
   // -- State --
@@ -28,8 +29,8 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   
-  // Research State
-  const [researchContext, setResearchContext] = useState("");
+  // Research & Braindump State
+  const [auxContent, setAuxContent] = useState(""); // Used for global copy in Research/Braindump
   const [globalCopySuccess, setGlobalCopySuccess] = useState(false);
   
   // Undo/Redo History
@@ -239,8 +240,8 @@ const App: React.FC = () => {
   };
 
   const handleGlobalCopy = () => {
-    const textToCopy = mode === 'research' 
-        ? researchContext 
+    const textToCopy = (mode === 'research' || mode === 'braindump')
+        ? auxContent 
         : blocks.map(b => b.content).join('\n\n');
     
     if (textToCopy) {
@@ -389,6 +390,16 @@ const App: React.FC = () => {
             {/* Mode Switcher */}
             <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 shadow-inner border border-zinc-200 dark:border-zinc-700">
                 <button 
+                    onClick={() => { setMode('braindump'); setSelectionRect(null); }}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
+                        mode === 'braindump' 
+                        ? 'bg-white dark:bg-zinc-700 text-teal-600 dark:text-teal-400 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                    }`}
+                >
+                    <Brain size={14} /> <span className="hidden sm:inline">Brain</span>
+                </button>
+                <button 
                     onClick={() => { setMode('research'); setSelectionRect(null); }}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'research' 
@@ -437,7 +448,7 @@ const App: React.FC = () => {
         </div>
 
         <div className="pointer-events-auto flex gap-2 sm:gap-3 items-center">
-             {mode !== 'research' && (
+             {mode !== 'research' && mode !== 'braindump' && (
                <>
                  <button 
                     onClick={handleUndo}
@@ -478,7 +489,7 @@ const App: React.FC = () => {
                 {globalCopySuccess ? <Check size={18} /> : <Copy size={18} />}
              </button>
 
-             {mode !== 'research' && (
+             {mode !== 'research' && mode !== 'braindump' && (
                <button 
                   onClick={handleClearText}
                   className="p-2 rounded-full text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all"
@@ -503,13 +514,21 @@ const App: React.FC = () => {
 
       {/* Main Editor Area */}
       <main className={`mx-auto pt-32 pb-24 px-6 md:px-12 relative z-10 min-h-screen transition-all duration-300 max-w-3xl flex flex-col`}>
-        {mode === 'research' ? (
+        {mode === 'braindump' ? (
+           <BraindumpView 
+              typography={typography}
+              onCopy={(text) => {
+                 navigator.clipboard.writeText(text);
+              }}
+              onActiveContentUpdate={setAuxContent}
+           />
+        ) : mode === 'research' ? (
           <ResearchView 
              typography={typography}
              onCopy={(text) => {
                 navigator.clipboard.writeText(text);
              }} 
-             onActiveContentUpdate={setResearchContext}
+             onActiveContentUpdate={setAuxContent}
           />
         ) : mode === 'shuffle' ? (
            <Reorder.Group axis="y" values={blocks} onReorder={handleShuffleReorder} className="flex flex-col gap-4">
