@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe } from 'lucide-react';
+import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2 } from 'lucide-react';
 import { motion, Reorder } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -224,6 +224,14 @@ const App: React.FC = () => {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleClearText = () => {
+    saveHistory();
+    const newId = uuidv4();
+    setBlocks([{ id: newId, type: 'p', content: '' }]);
+    setActiveBlockId(newId);
+    if (mode === 'shuffle') setMode('write');
   };
 
   // -- Interaction Handlers for Shuffle Mode --
@@ -453,6 +461,14 @@ const App: React.FC = () => {
                     title="Copy All"
                  >
                     <Copy size={18} />
+                 </button>
+
+                 <button 
+                    onClick={handleClearText}
+                    className="p-2 rounded-full text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all"
+                    title="Clear Text"
+                 >
+                    <Trash2 size={18} />
                  </button>
 
                  <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
