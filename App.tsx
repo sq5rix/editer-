@@ -412,7 +412,31 @@ const App: React.FC = () => {
             </div>
         </div>
 
-        <div className="pointer-events-auto flex gap-2 sm:gap-3">
+        <div className="pointer-events-auto flex gap-2 sm:gap-3 items-center">
+             {mode !== 'research' && (
+               <>
+                 <button 
+                    onClick={handleUndo}
+                    disabled={history.length === 0}
+                    className={`p-2 rounded-full transition-all ${history.length === 0 ? 'text-zinc-300 dark:text-zinc-700 opacity-50' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200'}`}
+                    title="Undo"
+                 >
+                     <RotateCcw size={18} />
+                 </button>
+
+                 <button 
+                    onClick={handleRedo}
+                    disabled={redoStack.length === 0}
+                    className={`p-2 rounded-full transition-all ${redoStack.length === 0 ? 'text-zinc-300 dark:text-zinc-700 opacity-50' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200'}`}
+                    title="Redo"
+                 >
+                     <RotateCw size={18} />
+                 </button>
+                 
+                 <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
+               </>
+             )}
+
              {/* Consolidated Settings Button */}
              <button 
                onClick={() => setSettingsOpen(true)} 
@@ -523,30 +547,6 @@ const App: React.FC = () => {
       {mode !== 'research' && (
         <div className="fixed bottom-16 left-1/2 -translate-x-1/2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-full px-6 py-3 flex items-center gap-6 z-[100] transition-all duration-500 hover:scale-105 ui-no-select">
           
-          {/* Undo Button */}
-          <button 
-              type="button"
-              onClick={handleUndo}
-              disabled={history.length === 0}
-              className={`flex flex-col items-center gap-1 group transition-colors touch-manipulation ${history.length === 0 ? 'text-zinc-300 dark:text-zinc-700 cursor-not-allowed' : 'text-zinc-500 hover:text-ink dark:hover:text-zinc-200'}`}
-              title="Undo"
-          >
-              <RotateCcw size={22} className={`${history.length > 0 ? 'group-hover:-rotate-90' : ''} transition-transform duration-300`} />
-          </button>
-
-          {/* Redo Button */}
-          <button 
-              type="button"
-              onClick={handleRedo}
-              disabled={redoStack.length === 0}
-              className={`flex flex-col items-center gap-1 group transition-colors touch-manipulation ${redoStack.length === 0 ? 'text-zinc-300 dark:text-zinc-700 cursor-not-allowed' : 'text-zinc-500 hover:text-ink dark:hover:text-zinc-200'}`}
-              title="Redo"
-          >
-              <RotateCw size={22} className={`${redoStack.length > 0 ? 'group-hover:rotate-90' : ''} transition-transform duration-300`} />
-          </button>
-
-          <div className="w-px h-8 bg-zinc-200 dark:bg-zinc-800"></div>
-
           <button 
               type="button"
               onClick={() => fileInputRef.current?.click()}
