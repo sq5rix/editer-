@@ -10,9 +10,22 @@ export interface Suggestion {
   options: string[];
 }
 
+export interface ResearchSource {
+  title: string;
+  url: string;
+}
+
+export interface ResearchThread {
+  id: string;
+  query: string;
+  content: string;
+  sources: ResearchSource[];
+  timestamp: number;
+}
+
 export type Theme = 'light' | 'dark' | 'system';
 
-export type Mode = 'write' | 'edit' | 'shuffle';
+export type Mode = 'research' | 'write' | 'edit' | 'shuffle';
 
 export interface AIState {
   isLoading: boolean;

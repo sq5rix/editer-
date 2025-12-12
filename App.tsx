@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings } from 'lucide-react';
+import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe } from 'lucide-react';
 import { motion, Reorder } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -11,6 +11,7 @@ import EditorBlock from './components/EditorBlock';
 import FloatingMenu from './components/FloatingMenu';
 import Sidebar from './components/Sidebar';
 import SettingsPanel from './components/SettingsPanel';
+import ResearchView from './components/ResearchView';
 
 const App: React.FC = () => {
   // -- State --
@@ -213,9 +214,12 @@ const App: React.FC = () => {
              setBlocks(prev => [...prev, ...newBlocks]);
           }
         } catch (err) {
-          alert('Failed to read image');
+          console.error(err);
+          alert('Failed to read image. Please try again.');
         } finally {
           setLoading(false);
+          // Reset file input
+          if (fileInputRef.current) fileInputRef.current.value = '';
         }
       };
       reader.readAsDataURL(file);
@@ -343,6 +347,15 @@ const App: React.FC = () => {
       {/* Background Ambience */}
       <div className="fixed inset-0 pointer-events-none opacity-50 dark:opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]"></div>
 
+      {/* Global Loading Overlay (for OCR) */}
+      {loading && !sidebarOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/20 backdrop-blur-sm">
+             <div className="bg-white dark:bg-zinc-800 p-4 rounded-full shadow-2xl animate-bounce">
+                <Loader2 className="animate-spin text-amber-500" size={32} />
+             </div>
+          </div>
+      )}
+
       {/* Header / Nav */}
       <header className="fixed top-0 left-0 w-full p-6 flex justify-between items-center z-30 bg-gradient-to-b from-paper via-paper/90 to-transparent dark:from-zinc-950 dark:via-zinc-950/90 h-24 pointer-events-none ui-no-select">
         <div className="pointer-events-auto flex items-center gap-4">
@@ -351,6 +364,16 @@ const App: React.FC = () => {
             
             {/* Mode Switcher */}
             <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 shadow-inner border border-zinc-200 dark:border-zinc-700">
+                <button 
+                    onClick={() => { setMode('research'); setSelectionRect(null); }}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
+                        mode === 'research' 
+                        ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                    }`}
+                >
+                    <Globe size={14} /> <span className="hidden sm:inline">Research</span>
+                </button>
                 <button 
                     onClick={() => { setMode('write'); setSelectionRect(null); }}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
@@ -375,7 +398,7 @@ const App: React.FC = () => {
                     onClick={() => { setMode('shuffle'); setSelectionRect(null); }}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'shuffle' 
-                        ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+                        ? 'bg-white dark:bg-zinc-700 text-teal-600 dark:text-teal-400 shadow-sm' 
                         : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
                     }`}
                 >
@@ -403,7 +426,15 @@ const App: React.FC = () => {
 
       {/* Main Editor Area */}
       <main className={`mx-auto pt-32 pb-48 px-6 md:px-12 relative z-10 min-h-screen transition-all duration-300 max-w-3xl flex flex-col`}>
-        {mode === 'shuffle' ? (
+        {mode === 'research' ? (
+          <ResearchView 
+             typography={typography}
+             onCopy={(text) => {
+                navigator.clipboard.writeText(text);
+                // Optional: visual feedback handled by button hover state mostly, but system clipboard used
+             }} 
+          />
+        ) : mode === 'shuffle' ? (
            <Reorder.Group axis="y" values={blocks} onReorder={handleShuffleReorder} className="flex flex-col gap-4">
               {blocks.map((block) => (
                 <EditorBlock
@@ -488,57 +519,59 @@ const App: React.FC = () => {
         onTypographyChange={setTypography}
       />
 
-      {/* Bottom Sticky Toolbar */}
-      <div className="fixed bottom-16 left-1/2 -translate-x-1/2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-full px-6 py-3 flex items-center gap-6 z-[100] transition-all duration-500 hover:scale-105 ui-no-select">
-        
-        {/* Undo Button */}
-        <button 
-            type="button"
-            onClick={handleUndo}
-            disabled={history.length === 0}
-            className={`flex flex-col items-center gap-1 group transition-colors touch-manipulation ${history.length === 0 ? 'text-zinc-300 dark:text-zinc-700 cursor-not-allowed' : 'text-zinc-500 hover:text-ink dark:hover:text-zinc-200'}`}
-            title="Undo"
-        >
-            <RotateCcw size={22} className={`${history.length > 0 ? 'group-hover:-rotate-90' : ''} transition-transform duration-300`} />
-        </button>
+      {/* Bottom Sticky Toolbar (Hidden in Research Mode) */}
+      {mode !== 'research' && (
+        <div className="fixed bottom-16 left-1/2 -translate-x-1/2 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 shadow-[0_8px_32px_rgba(0,0,0,0.12)] rounded-full px-6 py-3 flex items-center gap-6 z-[100] transition-all duration-500 hover:scale-105 ui-no-select">
+          
+          {/* Undo Button */}
+          <button 
+              type="button"
+              onClick={handleUndo}
+              disabled={history.length === 0}
+              className={`flex flex-col items-center gap-1 group transition-colors touch-manipulation ${history.length === 0 ? 'text-zinc-300 dark:text-zinc-700 cursor-not-allowed' : 'text-zinc-500 hover:text-ink dark:hover:text-zinc-200'}`}
+              title="Undo"
+          >
+              <RotateCcw size={22} className={`${history.length > 0 ? 'group-hover:-rotate-90' : ''} transition-transform duration-300`} />
+          </button>
 
-        {/* Redo Button */}
-        <button 
-            type="button"
-            onClick={handleRedo}
-            disabled={redoStack.length === 0}
-            className={`flex flex-col items-center gap-1 group transition-colors touch-manipulation ${redoStack.length === 0 ? 'text-zinc-300 dark:text-zinc-700 cursor-not-allowed' : 'text-zinc-500 hover:text-ink dark:hover:text-zinc-200'}`}
-            title="Redo"
-        >
-            <RotateCw size={22} className={`${redoStack.length > 0 ? 'group-hover:rotate-90' : ''} transition-transform duration-300`} />
-        </button>
+          {/* Redo Button */}
+          <button 
+              type="button"
+              onClick={handleRedo}
+              disabled={redoStack.length === 0}
+              className={`flex flex-col items-center gap-1 group transition-colors touch-manipulation ${redoStack.length === 0 ? 'text-zinc-300 dark:text-zinc-700 cursor-not-allowed' : 'text-zinc-500 hover:text-ink dark:hover:text-zinc-200'}`}
+              title="Redo"
+          >
+              <RotateCw size={22} className={`${redoStack.length > 0 ? 'group-hover:rotate-90' : ''} transition-transform duration-300`} />
+          </button>
 
-        <div className="w-px h-8 bg-zinc-200 dark:bg-zinc-800"></div>
+          <div className="w-px h-8 bg-zinc-200 dark:bg-zinc-800"></div>
 
-        <button 
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex flex-col items-center gap-1 group text-zinc-500 hover:text-ink dark:hover:text-zinc-200 transition-colors touch-manipulation"
-            title="Import Handwriting"
-        >
-            <Camera size={22} className="group-hover:-translate-y-1 transition-transform duration-300" />
-            <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
-        </button>
+          <button 
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex flex-col items-center gap-1 group text-zinc-500 hover:text-ink dark:hover:text-zinc-200 transition-colors touch-manipulation"
+              title="Import Handwriting"
+          >
+              <Camera size={22} className="group-hover:-translate-y-1 transition-transform duration-300" />
+              <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
+          </button>
 
-        <div className="w-px h-8 bg-zinc-200 dark:bg-zinc-800"></div>
+          <div className="w-px h-8 bg-zinc-200 dark:bg-zinc-800"></div>
 
-        <button 
-            type="button"
-            onClick={() => {
-                const fullText = blocks.map(b => b.content).join('\n\n');
-                navigator.clipboard.writeText(fullText);
-            }}
-            className="flex flex-col items-center gap-1 group text-zinc-500 hover:text-ink dark:hover:text-zinc-200 transition-colors touch-manipulation"
-            title="Copy All"
-        >
-            <Copy size={22} className="group-hover:-translate-y-1 transition-transform duration-300" />
-        </button>
-      </div>
+          <button 
+              type="button"
+              onClick={() => {
+                  const fullText = blocks.map(b => b.content).join('\n\n');
+                  navigator.clipboard.writeText(fullText);
+              }}
+              className="flex flex-col items-center gap-1 group text-zinc-500 hover:text-ink dark:hover:text-zinc-200 transition-colors touch-manipulation"
+              title="Copy All"
+          >
+              <Copy size={22} className="group-hover:-translate-y-1 transition-transform duration-300" />
+          </button>
+        </div>
+      )}
 
     </div>
   );
