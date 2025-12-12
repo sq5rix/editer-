@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { Block, ResearchSource } from "../types";
+import { Block, ResearchSource, Character, StyleAnalysis } from "../types";
 
 const apiKey = process.env.API_KEY;
 const ai = new GoogleGenAI({ apiKey });
@@ -192,4 +192,126 @@ export const researchTopic = async (query: string, previousContext: string = "")
     console.error("Research Error:", error);
     throw new Error("Failed to perform research.");
   }
+};
+
+export const generateCharacter = async (prompt: string): Promise<Omit<Character, 'id' | 'timestamp' | 'history'>> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: MODEL_TEXT,
+      contents: `You are an expert narratologist. Create a detailed character profile based on this input: "${prompt}".
+      
+      CRITICAL: You must analyze the character through the lens of the Greimas Actantial Model.
+      Assign one of the following roles based on the input:
+      - Subject (The hero/protagonist)
+      - Object (What the subject wants)
+      - Sender (What instigates the action)
+      - Receiver (Who benefits)
+      - Helper (Aids the subject)
+      - Opponent (Hinders the subject)
+
+      Return JSON only. Structure:
+      {
+        "name": "Character Name",
+        "greimasRole": "One of the 6 roles above",
+        "coreDesire": "1 sentence describing their abstract or concrete goal (The Object)",
+        "description": "A rich, editorial-style paragraph describing appearance, personality, and their narrative function."
+      }`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+           type: Type.OBJECT,
+           properties: {
+              name: { type: Type.STRING },
+              greimasRole: { type: Type.STRING, enum: ['Subject', 'Object', 'Sender', 'Receiver', 'Helper', 'Opponent'] },
+              coreDesire: { type: Type.STRING },
+              description: { type: Type.STRING }
+           },
+           required: ['name', 'greimasRole', 'coreDesire', 'description']
+        }
+      }
+    });
+
+    return JSON.parse(cleanJson(response.text));
+  } catch (error) {
+    console.error("Character Gen Error:", error);
+    throw new Error("Failed to generate character.");
+  }
+};
+
+export const refineCharacter = async (character: Character, userPrompt: string): Promise<string> => {
+    try {
+        const context = `
+        Character Name: ${character.name}
+        Greimas Role: ${character.greimasRole}
+        Core Desire: ${character.coreDesire}
+        Description: ${character.description}
+        
+        Previous Conversation:
+        ${character.history.map(m => `${m.role}: ${m.content}`).join('\n')}
+        `;
+
+        const response = await ai.models.generateContent({
+            model: MODEL_TEXT,
+            contents: `You are a creative writing assistant helping to develop a character.
+            
+            CONTEXT:
+            ${context}
+
+            USER REQUEST:
+            "${userPrompt}"
+
+            Provide a creative, detailed response that expands on the character. Keep the tone editorial and literary. Do NOT return JSON. Return Markdown text.`,
+        });
+
+        return response.text || "";
+    } catch (error) {
+        console.error("Character Refine Error:", error);
+        return "I couldn't process that refinement.";
+    }
+};
+
+export const analyzeStyle = async (text: string): Promise<StyleAnalysis> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: MODEL_TEXT,
+            contents: `Analyze the writing style of the provided text. Act as a literary editor.
+            
+            TEXT TO ANALYZE:
+            "${text.substring(0, 10000)}"
+
+            Provide a deep stylistic analysis including:
+            - Voice (e.g., Authoritative, Whimsical, Dry)
+            - Tone (e.g., Optimistic, Cynical, Neutral)
+            - Pacing (e.g., Fast, Methodical, Staccato)
+            - Readability (e.g., Simple, Moderate, Complex, Academic)
+            - 3 Key Strengths
+            - 3 Areas for improvement or stylistic weaknesses
+            - Rhetorical Devices used (up to 4)
+            - A summary paragraph describing the "Style Fingerprint".
+
+            Return JSON only.`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        voice: { type: Type.STRING },
+                        tone: { type: Type.STRING },
+                        pacing: { type: Type.STRING },
+                        readability: { type: Type.STRING },
+                        strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        rhetoricalDevices: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        summary: { type: Type.STRING }
+                    },
+                    required: ['voice', 'tone', 'pacing', 'readability', 'strengths', 'weaknesses', 'rhetoricalDevices', 'summary']
+                }
+            }
+        });
+
+        return JSON.parse(cleanJson(response.text));
+    } catch (error) {
+        console.error("Style Analysis Error:", error);
+        throw new Error("Failed to analyze style.");
+    }
 };

@@ -37,9 +37,35 @@ export interface BraindumpItem {
   timestamp: number;
 }
 
+export interface CharacterMessage {
+  role: 'user' | 'model';
+  content: string;
+}
+
+export interface Character {
+  id: string;
+  name: string;
+  greimasRole: 'Subject' | 'Object' | 'Sender' | 'Receiver' | 'Helper' | 'Opponent';
+  description: string;
+  coreDesire: string; // The 'Object' they seek (if Subject) or represent
+  history: CharacterMessage[]; // For follow-up refinements
+  timestamp: number;
+}
+
+export interface StyleAnalysis {
+  voice: string;
+  tone: string;
+  pacing: string;
+  readability: string;
+  strengths: string[];
+  weaknesses: string[];
+  rhetoricalDevices: string[];
+  summary: string;
+}
+
 export type Theme = 'light' | 'dark' | 'system';
 
-export type Mode = 'braindump' | 'research' | 'write' | 'edit' | 'shuffle';
+export type Mode = 'braindump' | 'research' | 'write' | 'edit' | 'shuffle' | 'characters' | 'analysis';
 
 export interface AIState {
   isLoading: boolean;

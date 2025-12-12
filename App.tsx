@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain } from 'lucide-react';
+import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather } from 'lucide-react';
 import { motion, Reorder } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -13,6 +13,8 @@ import Sidebar from './components/Sidebar';
 import SettingsPanel from './components/SettingsPanel';
 import ResearchView from './components/ResearchView';
 import BraindumpView from './components/BraindumpView';
+import CharactersView from './components/CharactersView';
+import StyleAnalysisView from './components/StyleAnalysisView';
 
 const App: React.FC = () => {
   // -- State --
@@ -240,7 +242,7 @@ const App: React.FC = () => {
   };
 
   const handleGlobalCopy = () => {
-    const textToCopy = (mode === 'research' || mode === 'braindump')
+    const textToCopy = (mode === 'research' || mode === 'braindump' || mode === 'characters')
         ? auxContent 
         : blocks.map(b => b.content).join('\n\n');
     
@@ -400,6 +402,16 @@ const App: React.FC = () => {
                     <Brain size={14} /> <span className="hidden sm:inline">Brain</span>
                 </button>
                 <button 
+                    onClick={() => { setMode('characters'); setSelectionRect(null); }}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
+                        mode === 'characters' 
+                        ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                    }`}
+                >
+                    <User size={14} /> <span className="hidden sm:inline">Characters</span>
+                </button>
+                <button 
                     onClick={() => { setMode('research'); setSelectionRect(null); }}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'research' 
@@ -439,6 +451,16 @@ const App: React.FC = () => {
                 >
                     <Shuffle size={14} /> <span className="hidden sm:inline">Shuffle</span>
                 </button>
+                <button 
+                    onClick={() => { setMode('analysis'); setSelectionRect(null); }}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
+                        mode === 'analysis' 
+                        ? 'bg-white dark:bg-zinc-700 text-amber-600 dark:text-amber-400 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                    }`}
+                >
+                    <Feather size={14} /> <span className="hidden sm:inline">Style</span>
+                </button>
             </div>
             
             <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-800 mx-2"></div>
@@ -448,7 +470,7 @@ const App: React.FC = () => {
         </div>
 
         <div className="pointer-events-auto flex gap-2 sm:gap-3 items-center">
-             {mode !== 'research' && mode !== 'braindump' && (
+             {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && (
                <>
                  <button 
                     onClick={handleUndo}
@@ -489,7 +511,7 @@ const App: React.FC = () => {
                 {globalCopySuccess ? <Check size={18} /> : <Copy size={18} />}
              </button>
 
-             {mode !== 'research' && mode !== 'braindump' && (
+             {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && (
                <button 
                   onClick={handleClearText}
                   className="p-2 rounded-full text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all"
@@ -530,6 +552,19 @@ const App: React.FC = () => {
              }} 
              onActiveContentUpdate={setAuxContent}
           />
+        ) : mode === 'characters' ? (
+           <CharactersView 
+              typography={typography}
+              onCopy={(text) => {
+                 navigator.clipboard.writeText(text);
+              }}
+              onActiveContentUpdate={setAuxContent}
+           />
+        ) : mode === 'analysis' ? (
+           <StyleAnalysisView 
+              text={blocks.map(b => b.content).join('\n\n')}
+              typography={typography}
+           />
         ) : mode === 'shuffle' ? (
            <Reorder.Group axis="y" values={blocks} onReorder={handleShuffleReorder} className="flex flex-col gap-4">
               {blocks.map((block) => (
