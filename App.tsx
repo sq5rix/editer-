@@ -399,6 +399,22 @@ const App: React.FC = () => {
       setBlocks(prev => prev.filter(b => b.id !== id));
   };
 
+  const handleBlockRewrite = async (id: string, prompt: string) => {
+    const block = blocks.find(b => b.id === id);
+    if (!block || block.type === 'hr') return;
+
+    // Loading handled by the component, we just wait for result
+    try {
+        const results = await GeminiService.customRewrite(block.content, prompt);
+        if (results && results.length > 0) {
+            saveHistory();
+            handleBlockChange(id, results[0]);
+        }
+    } catch (e) {
+        console.error("Rewrite failed", e);
+    }
+  };
+
   const handleBlockDoubleTap = (id: string) => {
     setActiveBlockId(id);
   };
@@ -808,6 +824,7 @@ const App: React.FC = () => {
                                 onPaste={handleBlockPaste}
                                 onFocus={(id) => { setActiveBlockId(id); setContextBlockId(id); }}
                                 onAnalyze={handleBlockAnalysis}
+                                onRewrite={handleBlockRewrite}
                                 typography={typography}
                                 mode="edit" 
                                 readOnly={false}
@@ -881,6 +898,7 @@ const App: React.FC = () => {
                     onPaste={handleBlockPaste}
                     onFocus={setActiveBlockId}
                     onAnalyze={handleBlockAnalysis}
+                    onRewrite={handleBlockRewrite}
                     typography={typography}
                     onDoubleTap={handleBlockDoubleTap}
                     onRemove={handleRemoveBlock}
