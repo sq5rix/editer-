@@ -95,10 +95,15 @@ export const checkGrammar = async (text: string): Promise<string[]> => {
   }
 };
 
-export const analyzeParagraph = async (text: string, type: 'sensory' | 'show-dont-tell'): Promise<string[]> => {
-  const prompt = type === 'sensory' 
-    ? `Rewrite this paragraph 4 times. Focus deeply on "Sensorizing" it—adding details of smell, touch, sound, and sight. Make it vivid.`
-    : `Rewrite this paragraph 4 times applying the "Show, Don't Tell" principle. Instead of stating emotions or facts, describe the actions and environment that prove them.`;
+export const analyzeParagraph = async (text: string, type: 'sensory' | 'show-dont-tell' | 'fluency'): Promise<string[]> => {
+  let prompt = "";
+  if (type === 'sensory') {
+      prompt = `Rewrite this paragraph 4 times. Focus deeply on "Sensorizing" it—adding details of smell, touch, sound, and sight. Make it vivid.`;
+  } else if (type === 'show-dont-tell') {
+      prompt = `Rewrite this paragraph 4 times applying the "Show, Don't Tell" principle. Instead of stating emotions or facts, describe the actions and environment that prove them.`;
+  } else if (type === 'fluency') {
+      prompt = `Rewrite this paragraph 4 times to sound more like a native English speaker. Focus specifically on correcting article usage (a/the), prepositions, and awkward phrasing. Keep the original meaning intact.`;
+  }
 
   try {
     const response = await ai.models.generateContent({

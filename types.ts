@@ -5,7 +5,7 @@ export interface Block {
 }
 
 export interface Suggestion {
-  type: 'synonym' | 'expand' | 'grammar' | 'sensory' | 'show-dont-tell';
+  type: 'synonym' | 'expand' | 'grammar' | 'sensory' | 'show-dont-tell' | 'fluency';
   originalText: string;
   options: string[];
 }

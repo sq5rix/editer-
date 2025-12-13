@@ -340,7 +340,7 @@ const App: React.FC = () => {
     setLoading(false);
   };
 
-  const handleBlockAnalysis = async (blockId: string, type: 'sensory' | 'show-dont-tell') => {
+  const handleBlockAnalysis = async (blockId: string, type: 'sensory' | 'show-dont-tell' | 'fluency') => {
     // If context block isn't set (e.g. from margin button), set it
     if (!contextBlockId) setContextBlockId(blockId);
     
@@ -398,8 +398,8 @@ const App: React.FC = () => {
        setBlocks(prev => prev.map(b => {
            if (b.id !== contextBlockId) return b;
            
-           // If it's a full replacement (sensory/show-dont-tell)
-           if (suggestion?.type === 'sensory' || suggestion?.type === 'show-dont-tell') {
+           // If it's a full replacement (sensory/show-dont-tell/fluency)
+           if (suggestion?.type === 'sensory' || suggestion?.type === 'show-dont-tell' || suggestion?.type === 'fluency') {
                return { ...b, content: text };
            }
 
@@ -413,7 +413,7 @@ const App: React.FC = () => {
        }));
     } else {
         // Fallback for when ID is lost
-        if (suggestion?.type === 'sensory' || suggestion?.type === 'show-dont-tell') {
+        if (suggestion?.type === 'sensory' || suggestion?.type === 'show-dont-tell' || suggestion?.type === 'fluency') {
            const blockIndex = blocks.findIndex(b => b.content === suggestion.originalText);
            if (blockIndex !== -1) {
                const newBlocks = [...blocks];

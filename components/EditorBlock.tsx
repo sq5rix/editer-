@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { Block, TypographySettings, Mode } from '../types';
-import { Eye, BookOpen, GripVertical } from 'lucide-react';
+import { Eye, BookOpen, GripVertical, Wand2 } from 'lucide-react';
 import { motion, Reorder, useDragControls } from 'framer-motion';
 
 interface EditorBlockProps {
@@ -11,7 +11,7 @@ interface EditorBlockProps {
   onChange: (id: string, newContent: string) => void;
   onPaste?: (id: string, e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
   onFocus: (id: string) => void;
-  onAnalyze: (id: string, type: 'sensory' | 'show-dont-tell') => void;
+  onAnalyze: (id: string, type: 'sensory' | 'show-dont-tell' | 'fluency') => void;
   typography: TypographySettings;
   isSwapSource?: boolean;
   onShuffleSelect?: (id: string) => void;
@@ -206,6 +206,13 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
        {/* Active Block Indicator / Actions - ONLY IN EDIT MODE LIVE PANE */}
        {!readOnly && mode === 'edit' && (
            <div className={`absolute right-0 -top-7 flex flex-row justify-end items-center gap-2 transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} pointer-events-auto z-20`}>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onAnalyze(block.id, 'fluency'); }}
+                className="p-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30 dark:hover:text-amber-500 transition-colors shadow-sm ui-no-select touch-manipulation border border-zinc-200 dark:border-zinc-700"
+                title="Native Polish (Fix articles & phrasing)"
+              >
+                <Wand2 size={14} />
+              </button>
               <button 
                 onClick={(e) => { e.stopPropagation(); onAnalyze(block.id, 'sensory'); }}
                 className="p-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30 dark:hover:text-amber-500 transition-colors shadow-sm ui-no-select touch-manipulation border border-zinc-200 dark:border-zinc-700"
