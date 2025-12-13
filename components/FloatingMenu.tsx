@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Maximize2, CheckCircle, Eye, BookOpen, Wand2, ArrowRight, X } from 'lucide-react';
+import { Sparkles, Maximize2, CheckCircle, Eye, BookOpen, Wand2, ArrowRight, X, MapPin } from 'lucide-react';
 
 interface FloatingMenuProps {
   position: { top: number; left: number } | null;
@@ -10,6 +10,7 @@ interface FloatingMenuProps {
   onGrammar?: () => void;
   onSensory?: () => void;
   onShowDontTell?: () => void;
+  onSenseOfPlace?: () => void;
   onCustom?: (prompt: string) => void;
 }
 
@@ -21,6 +22,7 @@ const FloatingMenu: React.FC<FloatingMenuProps> = ({
   onGrammar,
   onSensory,
   onShowDontTell,
+  onSenseOfPlace,
   onCustom
 }) => {
   const [isInputMode, setIsInputMode] = useState(false);
@@ -124,6 +126,11 @@ const FloatingMenu: React.FC<FloatingMenuProps> = ({
                 <button onClick={onShowDontTell} className="p-2 hover:bg-white/20 dark:hover:bg-black/10 rounded-full transition-colors group relative">
                   <BookOpen size={16} />
                   <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">Show, Don't Tell</span>
+                </button>
+                <div className="w-px h-4 bg-white/20 dark:bg-black/20 mx-1"></div>
+                <button onClick={onSenseOfPlace} className="p-2 hover:bg-white/20 dark:hover:bg-black/10 rounded-full transition-colors group relative">
+                  <MapPin size={16} />
+                  <span className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">Sense of Place</span>
                 </button>
               </>
             )}

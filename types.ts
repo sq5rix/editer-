@@ -13,7 +13,7 @@ export interface BookEntry {
 }
 
 export interface Suggestion {
-  type: 'synonym' | 'expand' | 'grammar' | 'sensory' | 'show-dont-tell' | 'fluency';
+  type: 'synonym' | 'expand' | 'grammar' | 'sensory' | 'show-dont-tell' | 'fluency' | 'custom' | 'sense-of-place';
   originalText: string;
   options: string[];
 }
@@ -68,6 +68,7 @@ export interface StyleAnalysis {
   strengths: string[];
   weaknesses: string[];
   rhetoricalDevices: string[];
+  senseOfPlace: string;
   summary: string;
 }
 

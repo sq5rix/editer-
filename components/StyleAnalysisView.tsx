@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Feather, Loader2, RefreshCcw, ThumbsUp, ThumbsDown, Zap, BookOpen, Activity } from 'lucide-react';
+import { Feather, Loader2, RefreshCcw, ThumbsUp, ThumbsDown, Zap, BookOpen, Activity, MapPin } from 'lucide-react';
 import { StyleAnalysis, TypographySettings, User } from '../types';
 import * as GeminiService from '../services/geminiService';
 import * as FirebaseService from '../services/firebase';
@@ -172,6 +172,16 @@ const StyleAnalysisView: React.FC<StyleAnalysisViewProps> = ({ text, typography,
                            </div>
                        </div>
                    </div>
+               </div>
+
+               {/* Sense of Place - NEW METRIC */}
+               <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-700">
+                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                       <MapPin size={14} /> Sense of Place
+                    </h3>
+                    <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed italic border-l-2 border-emerald-500 pl-3 bg-emerald-50 dark:bg-emerald-900/10 py-2 rounded-r-lg">
+                        {analysis.senseOfPlace || "Analysis not available."}
+                    </p>
                </div>
 
                {/* Rhetorical Devices */}

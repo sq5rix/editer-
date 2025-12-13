@@ -95,7 +95,7 @@ export const checkGrammar = async (text: string): Promise<string[]> => {
   }
 };
 
-export const analyzeParagraph = async (text: string, type: 'sensory' | 'show-dont-tell' | 'fluency'): Promise<string[]> => {
+export const analyzeParagraph = async (text: string, type: 'sensory' | 'show-dont-tell' | 'fluency' | 'sense-of-place'): Promise<string[]> => {
   let prompt = "";
   if (type === 'sensory') {
       prompt = `Rewrite this paragraph 4 times. Focus deeply on "Sensorizing" it—adding details of smell, touch, sound, and sight. Make it vivid.`;
@@ -103,6 +103,8 @@ export const analyzeParagraph = async (text: string, type: 'sensory' | 'show-don
       prompt = `Rewrite this paragraph 4 times applying the "Show, Don't Tell" principle. Instead of stating emotions or facts, describe the actions and environment that prove them.`;
   } else if (type === 'fluency') {
       prompt = `Rewrite this paragraph 4 times to sound more like a native English speaker. Focus specifically on correcting article usage (a/the), prepositions, and awkward phrasing. Keep the original meaning intact.`;
+  } else if (type === 'sense-of-place') {
+      prompt = `Rewrite this paragraph 4 times. Focus on "Sense of Place". Ground the reader in the setting by enhancing atmospheric details, lighting, spatial geography, and the mood of the environment.`;
   }
 
   try {
@@ -128,7 +130,7 @@ export const customRewrite = async (text: string, customPrompt: string): Promise
   try {
     const response = await ai.models.generateContent({
       model: MODEL_TEXT,
-      contents: `Rewrite the following text based strictly on this instruction: "${customPrompt}". Provide 4 distinct variations. Text to rewrite: "${text}". Return ONLY a JSON array of strings.`,
+      contents: `Rewrite the following text based strictly on this instruction: "${customPrompt}". Provide 3 distinct variations. Text to rewrite: "${text}". Return ONLY a JSON array of strings.`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -281,7 +283,7 @@ export const generateCastFromStory = async (storyText: string): Promise<Omit<Cha
                   greimasRole: { type: Type.STRING, enum: ['Subject', 'Object', 'Sender', 'Receiver', 'Helper', 'Opponent'] },
                   coreDesire: { type: Type.STRING },
                   description: { type: Type.STRING }
-               },
+           },
                required: ['name', 'greimasRole', 'coreDesire', 'description']
            }
         }
@@ -341,6 +343,7 @@ export const analyzeStyle = async (text: string): Promise<StyleAnalysis> => {
             - Tone (e.g., Optimistic, Cynical, Neutral)
             - Pacing (e.g., Fast, Methodical, Staccato)
             - Readability (e.g., Simple, Moderate, Complex, Academic)
+            - Sense of Place (How well is setting evoked? 1 sentence assessment)
             - 3 Key Strengths
             - 3 Areas for improvement or stylistic weaknesses
             - Rhetorical Devices used (up to 4)
@@ -356,12 +359,13 @@ export const analyzeStyle = async (text: string): Promise<StyleAnalysis> => {
                         tone: { type: Type.STRING },
                         pacing: { type: Type.STRING },
                         readability: { type: Type.STRING },
+                        senseOfPlace: { type: Type.STRING },
                         strengths: { type: Type.ARRAY, items: { type: Type.STRING } },
                         weaknesses: { type: Type.ARRAY, items: { type: Type.STRING } },
                         rhetoricalDevices: { type: Type.ARRAY, items: { type: Type.STRING } },
                         summary: { type: Type.STRING }
                     },
-                    required: ['voice', 'tone', 'pacing', 'readability', 'strengths', 'weaknesses', 'rhetoricalDevices', 'summary']
+                    required: ['voice', 'tone', 'pacing', 'readability', 'senseOfPlace', 'strengths', 'weaknesses', 'rhetoricalDevices', 'summary']
                 }
             }
         });

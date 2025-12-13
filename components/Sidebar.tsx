@@ -55,6 +55,8 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, suggestions, onApply
                    {suggestions.type === 'grammar' && 'Grammar Fixes'}
                    {suggestions.type === 'sensory' && 'Sensory Details'}
                    {suggestions.type === 'show-dont-tell' && 'Show, Don\'t Tell'}
+                   {suggestions.type === 'sense-of-place' && 'Setting & Atmosphere'}
+                   {suggestions.type === 'custom' && 'Magic Drafts'}
                  </div>
 
                  <div className="space-y-3">

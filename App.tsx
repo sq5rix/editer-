@@ -403,13 +403,18 @@ const App: React.FC = () => {
     const block = blocks.find(b => b.id === id);
     if (!block || block.type === 'hr') return;
 
-    // Loading handled by the component, we just wait for result
+    // Set context so we know where to apply the suggestion
+    setContextBlockId(id);
+
     try {
         const results = await GeminiService.customRewrite(block.content, prompt);
-        if (results && results.length > 0) {
-            saveHistory();
-            handleBlockChange(id, results[0]);
-        }
+        
+        setSuggestion({
+            type: 'custom',
+            originalText: block.content,
+            options: results
+        });
+        setSidebarOpen(true);
     } catch (e) {
         console.error("Rewrite failed", e);
     }
@@ -558,7 +563,7 @@ const App: React.FC = () => {
     setLoading(false);
   };
 
-  const handleBlockAnalysis = async (blockId: string, type: 'sensory' | 'show-dont-tell' | 'fluency') => {
+  const handleBlockAnalysis = async (blockId: string, type: 'sensory' | 'show-dont-tell' | 'fluency' | 'sense-of-place') => {
     if (!contextBlockId) setContextBlockId(blockId);
     
     const block = blocks.find(b => b.id === blockId);
@@ -610,7 +615,7 @@ const App: React.FC = () => {
     if (contextBlockId) {
        setBlocks(prev => prev.map(b => {
            if (b.id !== contextBlockId) return b;
-           if (suggestion?.type === 'sensory' || suggestion?.type === 'show-dont-tell' || suggestion?.type === 'fluency') {
+           if (suggestion?.type === 'sensory' || suggestion?.type === 'show-dont-tell' || suggestion?.type === 'fluency' || suggestion?.type === 'custom' || suggestion?.type === 'sense-of-place') {
                return { ...b, content: text };
            }
            if (suggestion?.originalText && b.content.includes(suggestion.originalText)) {
@@ -619,7 +624,7 @@ const App: React.FC = () => {
            return b;
        }));
     } else {
-        if (suggestion?.type === 'sensory' || suggestion?.type === 'show-dont-tell' || suggestion?.type === 'fluency') {
+        if (suggestion?.type === 'sensory' || suggestion?.type === 'show-dont-tell' || suggestion?.type === 'fluency' || suggestion?.type === 'custom' || suggestion?.type === 'sense-of-place') {
            const blockIndex = blocks.findIndex(b => b.content === suggestion.originalText);
            if (blockIndex !== -1) {
                const newBlocks = [...blocks];
@@ -817,7 +822,7 @@ const App: React.FC = () => {
                    <div ref={leftPaneRef} onScroll={() => handleScrollSync('left')} className="flex-1 overflow-y-auto pl-4 pr-4 border-r border-zinc-200 dark:border-zinc-800">
                         {blocks.map((block) => (
                             <EditorBlock
-                                key={block.id}
+                                key={`${block.id}-edit`}
                                 block={block}
                                 isActive={activeBlockId === block.id}
                                 onChange={handleBlockChange}
@@ -842,7 +847,7 @@ const App: React.FC = () => {
                    <div ref={rightPaneRef} onScroll={() => handleScrollSync('right')} className="flex-1 overflow-y-auto pl-4 opacity-70 hover:opacity-100 transition-opacity">
                         {originalSnapshot.map((block) => (
                             <EditorBlock
-                                key={block.id}
+                                key={`${block.id}-snapshot`}
                                 block={block}
                                 isActive={false}
                                 mode="edit"
@@ -865,7 +870,7 @@ const App: React.FC = () => {
                    <Reorder.Group axis="y" values={blocks} onReorder={handleShuffleReorder} className="flex flex-col gap-4 pb-24">
                       {blocks.map((block) => (
                         <EditorBlock
-                            key={block.id}
+                            key={`${block.id}-shuffle`}
                             block={block}
                             isActive={false}
                             mode={mode}
@@ -890,7 +895,7 @@ const App: React.FC = () => {
           <>
             {blocks.map((block) => (
                 <EditorBlock
-                    key={block.id}
+                    key={`${block.id}-write`}
                     block={block}
                     isActive={activeBlockId === block.id}
                     mode={mode}
@@ -915,7 +920,7 @@ const App: React.FC = () => {
       </main>
 
       {(mode === 'edit' || (mode === 'shuffle' && menuMode === 'block')) && (
-          <FloatingMenu position={selectionRect} menuType={menuMode} onSynonym={() => handleGeminiAction('synonym')} onExpand={() => handleGeminiAction('expand')} onGrammar={() => handleGeminiAction('grammar')} onSensory={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'sensory')} onShowDontTell={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'show-dont-tell')} onCustom={handleCustomPrompt} />
+          <FloatingMenu position={selectionRect} menuType={menuMode} onSynonym={() => handleGeminiAction('synonym')} onExpand={() => handleGeminiAction('expand')} onGrammar={() => handleGeminiAction('grammar')} onSensory={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'sensory')} onShowDontTell={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'show-dont-tell')} onSenseOfPlace={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'sense-of-place')} onCustom={handleCustomPrompt} />
       )}
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} suggestions={suggestion} onApply={applySuggestion} loading={loading} />

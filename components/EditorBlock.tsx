@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { Block, TypographySettings, Mode } from '../types';
-import { Eye, BookOpen, GripVertical, Wand2, Sparkles, ArrowRight, X } from 'lucide-react';
+import { Eye, BookOpen, GripVertical, Wand2, Sparkles, ArrowRight, X, MapPin } from 'lucide-react';
 import { motion, Reorder, useDragControls, AnimatePresence } from 'framer-motion';
 
 interface EditorBlockProps {
@@ -11,7 +11,7 @@ interface EditorBlockProps {
   onChange: (id: string, newContent: string) => void;
   onPaste?: (id: string, e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
   onFocus: (id: string) => void;
-  onAnalyze: (id: string, type: 'sensory' | 'show-dont-tell' | 'fluency') => void;
+  onAnalyze: (id: string, type: 'sensory' | 'show-dont-tell' | 'fluency' | 'sense-of-place') => void;
   onRewrite?: (id: string, prompt: string) => void;
   typography: TypographySettings;
   isSwapSource?: boolean;
@@ -316,6 +316,13 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
                 title="Show, Don't Tell"
               >
                 <BookOpen size={14} />
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onAnalyze(block.id, 'sense-of-place'); }}
+                className="p-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors shadow-sm ui-no-select touch-manipulation border border-zinc-200 dark:border-zinc-700"
+                title="Sense of Place"
+              >
+                <MapPin size={14} />
               </button>
            </div>
        )}
