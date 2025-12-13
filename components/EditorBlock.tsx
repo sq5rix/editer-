@@ -18,6 +18,7 @@ interface EditorBlockProps {
   onShuffleContextMenu?: (id: string, position: { top: number; left: number }) => void;
   onDoubleTap?: (id: string) => void;
   readOnly?: boolean;
+  onRemove?: (id: string) => void;
 }
 
 const EditorBlock: React.FC<EditorBlockProps> = ({ 
@@ -32,10 +33,12 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   onShuffleSelect,
   onShuffleContextMenu,
   onDoubleTap,
-  readOnly = false
+  readOnly = false,
+  onRemove
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const hrRef = useRef<HTMLDivElement>(null);
   const dragControls = useDragControls();
   
   // Ref to track last click time for manual double-tap detection
@@ -45,20 +48,22 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startPos = useRef<{ x: number; y: number } | null>(null);
 
-  // Auto-focus textarea when switching to write/edit mode if active
+  // Auto-focus textarea or HR element when switching to write/edit mode if active
   useEffect(() => {
-    if (isActive && (mode === 'write' || (mode === 'edit' && !readOnly)) && textareaRef.current) {
+    if (isActive && (mode === 'write' || (mode === 'edit' && !readOnly))) {
       setTimeout(() => {
-        textareaRef.current?.focus();
-        const val = textareaRef.current?.value;
-        if (val) {
-          textareaRef.current.setSelectionRange(val.length, val.length);
+        if (block.type === 'hr' && hrRef.current) {
+            hrRef.current.focus();
+        } else if (textareaRef.current) {
+            textareaRef.current.focus();
+            const val = textareaRef.current.value;
+            textareaRef.current.setSelectionRange(val.length, val.length);
         }
         // Scroll into view
-        textareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        (hrRef.current || textareaRef.current)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 50);
     }
-  }, [mode, isActive, readOnly]);
+  }, [mode, isActive, readOnly, block.type]);
 
   const getFontClass = () => {
     if (block.type === 'h1') return 'font-display';
@@ -171,18 +176,51 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
         </div>
         
         <div className="flex-1 min-w-0 pointer-events-none">
-          <div 
-            className="text-sm text-zinc-900 dark:text-white font-serif leading-relaxed line-clamp-3"
-            style={{ opacity: typography.contrast }}
-          >
-              {block.content || <span className="italic opacity-50">Empty block...</span>}
-          </div>
+          {block.type === 'hr' ? (
+              <div className="flex justify-center items-center py-2 opacity-50">
+                  <div className="h-px w-8 bg-zinc-300 dark:bg-zinc-600"></div>
+                  <div className="mx-2 text-zinc-400 dark:text-zinc-500 text-xs uppercase tracking-widest">Break</div>
+                  <div className="h-px w-8 bg-zinc-300 dark:bg-zinc-600"></div>
+              </div>
+          ) : (
+            <div 
+                className="text-sm text-zinc-900 dark:text-white font-serif leading-relaxed line-clamp-3"
+                style={{ opacity: typography.contrast }}
+            >
+                {block.content || <span className="italic opacity-50">Empty block...</span>}
+            </div>
+          )}
         </div>
       </Reorder.Item>
     );
   }
+
+  // --- HORIZONTAL RULE RENDER (WRITE/EDIT) ---
+  if (block.type === 'hr') {
+    return (
+        <motion.div
+            layoutId={!readOnly ? block.id : `${block.id}-readonly`}
+            ref={hrRef}
+            data-block-id={block.id}
+            className={`relative py-8 my-2 outline-none group cursor-pointer transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}
+            onClick={handleClick}
+            tabIndex={0}
+            onKeyDown={(e) => {
+                if ((e.key === 'Backspace' || e.key === 'Delete') && !readOnly && onRemove) {
+                    onRemove(block.id);
+                }
+            }}
+        >
+             <div className="flex items-center justify-center gap-4 select-none">
+                 <div className="h-px w-12 bg-zinc-300 dark:bg-zinc-700"></div>
+                 <div className="text-zinc-400 dark:text-zinc-600 font-serif italic text-lg tracking-widest">* * *</div>
+                 <div className="h-px w-12 bg-zinc-300 dark:bg-zinc-700"></div>
+             </div>
+        </motion.div>
+    );
+  }
   
-  // --- WRITE / EDIT MODE RENDER ---
+  // --- TEXT BLOCK RENDER ---
   
   return (
     <motion.div

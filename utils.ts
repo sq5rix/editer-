@@ -14,15 +14,22 @@ export const parseTextToBlocks = (text: string): Block[] => {
   // This preserves single newlines within a paragraph/block.
   const segments = normalized.split(/\n\s*\n/).filter(line => line.trim() !== '');
 
-  return segments.map(line => ({
-    id: uuidv4(),
-    type: line.trim().startsWith('#') ? 'h1' : 'p',
-    content: line.trim().replace(/^#\s*/, '')
-  }));
+  return segments.map(line => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('#')) {
+      return { id: uuidv4(), type: 'h1', content: trimmed.replace(/^#\s*/, '') };
+    }
+    // Recognize scene breaks (---, ***, ___)
+    if (/^[-*_]{3,}$/.test(trimmed)) {
+      return { id: uuidv4(), type: 'hr', content: '' };
+    }
+    return { id: uuidv4(), type: 'p', content: trimmed };
+  });
 };
 
 export const countWords = (blocks: Block[]): number => {
   return blocks.reduce((acc, block) => {
+    if (block.type === 'hr') return acc;
     return acc + block.content.trim().split(/\s+/).filter(w => w.length > 0).length;
   }, 0);
 };

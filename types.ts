@@ -1,7 +1,7 @@
 
 export interface Block {
   id: string;
-  type: 'h1' | 'p';
+  type: 'h1' | 'p' | 'hr';
   content: string;
 }
 

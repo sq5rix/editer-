@@ -350,7 +350,24 @@ const App: React.FC = () => {
 
   // -- Block Management --
   const handleBlockChange = (id: string, newContent: string) => {
+    // Recognize --- as break
+    if (newContent.trim() === '---') {
+        setBlocks(prev => prev.map(b => b.id === id ? { ...b, type: 'hr', content: '' } : b));
+        return;
+    }
     setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: newContent } : b));
+  };
+
+  const handleRemoveBlock = (id: string) => {
+      const index = blocks.findIndex(b => b.id === id);
+      if (index > 0) {
+          setActiveBlockId(blocks[index - 1].id);
+      } else if (blocks.length > 1) {
+          setActiveBlockId(blocks[index + 1].id);
+      } else {
+          setActiveBlockId(null);
+      }
+      setBlocks(prev => prev.filter(b => b.id !== id));
   };
 
   const handleBlockDoubleTap = (id: string) => {
@@ -451,7 +468,7 @@ const App: React.FC = () => {
   const handleGlobalCopy = () => {
     const textToCopy = (mode === 'research' || mode === 'braindump' || mode === 'characters' || mode === 'metadata')
         ? auxContent 
-        : blocks.map(b => b.content).join('\n\n');
+        : blocks.map(b => b.type === 'hr' ? '---' : b.content).join('\n\n'); // Include --- in copy
     
     if (textToCopy) {
         navigator.clipboard.writeText(textToCopy);
@@ -500,7 +517,7 @@ const App: React.FC = () => {
     if (!contextBlockId) setContextBlockId(blockId);
     
     const block = blocks.find(b => b.id === blockId);
-    if (!block) return;
+    if (!block || block.type === 'hr') return;
 
     setLoading(true);
     setSidebarOpen(true);
@@ -522,7 +539,7 @@ const App: React.FC = () => {
     
     if (!textToAnalyze && contextBlockId && menuMode === 'block') {
         const block = blocks.find(b => b.id === contextBlockId);
-        if (block) textToAnalyze = block.content;
+        if (block && block.type !== 'hr') textToAnalyze = block.content;
     }
 
     if (!textToAnalyze) return;
@@ -764,6 +781,7 @@ const App: React.FC = () => {
                                 typography={typography}
                                 mode="edit" 
                                 readOnly={false}
+                                onRemove={handleRemoveBlock}
                             />
                         ))}
                    </div>
@@ -834,6 +852,7 @@ const App: React.FC = () => {
                     onAnalyze={handleBlockAnalysis}
                     typography={typography}
                     onDoubleTap={handleBlockDoubleTap}
+                    onRemove={handleRemoveBlock}
                 />
             ))}
             {mode === 'write' && (
