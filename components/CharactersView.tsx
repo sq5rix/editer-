@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Plus, Trash2, Copy, Sparkles, Send, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { User, Plus, Trash2, Copy, Sparkles, Send, Loader2, ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
 import { Character, TypographySettings, CharacterMessage, User as UserType } from '../types';
 import * as GeminiService from '../services/geminiService';
 import * as FirebaseService from '../services/firebase';
@@ -191,21 +191,13 @@ const CharacterCard: React.FC<{
     onCopy: (text: string) => void;
 }> = ({ character, typography, onDelete, onFollowUp, isGenerating, colorClass, onCopy }) => {
     const [prompt, setPrompt] = useState("");
-    const [expanded, setExpanded] = useState(false);
-    
-    // Auto-scroll to bottom of history
-    const historyRef = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        if (expanded && historyRef.current) {
-            historyRef.current.scrollTop = historyRef.current.scrollHeight;
-        }
-    }, [character.history, expanded, isGenerating]);
+    const [showHistory, setShowHistory] = useState(false);
 
     const handleSend = () => {
         if (prompt.trim()) {
             onFollowUp(character.id, prompt);
             setPrompt("");
-            setExpanded(true); // Auto expand if chatting
+            setShowHistory(true);
         }
     };
 
@@ -215,10 +207,10 @@ const CharacterCard: React.FC<{
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white dark:bg-zinc-800 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden flex flex-col md:flex-row"
+            className="bg-white dark:bg-zinc-800 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden flex flex-col"
         >
-            {/* Left: Card Profile */}
-            <div className="p-6 md:p-8 flex-1">
+            {/* Top: Card Profile */}
+            <div className="p-6 md:p-8">
                 <div className="flex justify-between items-start mb-4">
                     <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border ${colorClass}`}>
                         {character.greimasRole}
@@ -252,71 +244,88 @@ const CharacterCard: React.FC<{
                 </div>
             </div>
 
-            {/* Right/Bottom: Follow-up Area */}
-            <div className="md:w-80 border-t md:border-t-0 md:border-l border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-900/30 flex flex-col">
-                <div 
-                    className={`flex-1 overflow-y-auto p-4 space-y-4 min-h-[150px] md:max-h-[500px] transition-all ${expanded ? 'h-96' : 'h-40 md:h-auto'}`}
-                    ref={historyRef}
-                >
-                    {character.history.length === 0 ? (
-                        <div className="h-full flex flex-col items-center justify-center text-zinc-400 text-sm italic opacity-60">
-                            <Sparkles size={16} className="mb-2" />
-                            <p>Refine this character...</p>
-                        </div>
-                    ) : (
-                        character.history.map((msg, i) => (
-                            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${
-                                    msg.role === 'user' 
-                                    ? 'bg-indigo-600 text-white' 
-                                    : 'bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300'
-                                }`}>
-                                    {msg.content}
-                                </div>
-                            </div>
-                        ))
-                    )}
-                    {isGenerating && (
-                        <div className="flex justify-start">
-                            <div className="bg-white dark:bg-zinc-800 rounded-xl px-3 py-2 border border-zinc-200 dark:border-zinc-700">
-                                <Loader2 size={16} className="animate-spin text-zinc-400" />
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <div className="p-3 border-t border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800">
-                     {/* Mobile Expand Toggle */}
-                     <button 
-                        onClick={() => setExpanded(!expanded)} 
-                        className="w-full flex justify-center pb-2 md:hidden text-zinc-300 hover:text-zinc-500"
+            {/* Bottom: Refinements & Notes (Vertical Stack "Braindump Style") */}
+            <div className="border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 p-6 flex flex-col gap-4">
+                
+                {/* Expand Toggle if history exists */}
+                {character.history.length > 0 && (
+                    <button 
+                        onClick={() => setShowHistory(!showHistory)}
+                        className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest hover:text-indigo-500 transition-colors w-full"
                     >
-                        {expanded ? <ChevronDown size={16}/> : <ChevronUp size={16} />}
-                     </button>
+                         {showHistory ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+                         {character.history.length} Refinements
+                    </button>
+                )}
 
-                     <div className="relative">
-                        <TextareaAutosize
-                            maxRows={4}
-                            value={prompt}
-                            onChange={(e) => setPrompt(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleSend();
-                                }
-                            }}
-                            placeholder="Ask follow-up..."
-                            className="w-full bg-zinc-100 dark:bg-zinc-900 border-none rounded-xl pl-3 pr-10 py-2.5 text-sm outline-none resize-none focus:ring-1 focus:ring-indigo-500/30"
-                        />
-                        <button 
-                            onClick={handleSend}
-                            disabled={!prompt.trim() || isGenerating}
-                            className="absolute right-1.5 top-1.5 p-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors disabled:opacity-50"
+                {/* History Cards */}
+                <AnimatePresence>
+                    {(showHistory || isGenerating) && (
+                        <motion.div 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="space-y-4 overflow-hidden"
                         >
-                            <Send size={14} />
-                        </button>
-                     </div>
+                            {character.history.map((msg, i) => (
+                                <div 
+                                    key={i} 
+                                    className={`p-5 rounded-xl border shadow-sm ${
+                                        msg.role === 'user' 
+                                        ? 'bg-indigo-50/50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-800/50' 
+                                        : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700'
+                                    }`}
+                                >
+                                    <div className="flex items-center gap-2 mb-2">
+                                        {msg.role === 'user' ? (
+                                            <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide">
+                                                Request
+                                            </span>
+                                        ) : (
+                                            <span className="bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide">
+                                                Update
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="prose dark:prose-invert max-w-none text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                                        {msg.content}
+                                    </div>
+                                </div>
+                            ))}
+                            {isGenerating && (
+                                <div className="p-4 flex items-center justify-center text-zinc-400 animate-pulse">
+                                    <Loader2 size={20} className="animate-spin mr-2"/> Refuting canon...
+                                </div>
+                            )}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Input Area */}
+                <div className="relative mt-2">
+                    <TextareaAutosize
+                        minRows={1}
+                        maxRows={5}
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSend();
+                            }
+                        }}
+                        placeholder="Add a note, refine backstory, or ask a question..."
+                        className="w-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl pl-4 pr-12 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm transition-shadow resize-none"
+                    />
+                    <button 
+                        onClick={handleSend}
+                        disabled={!prompt.trim() || isGenerating}
+                        className="absolute right-2 top-2 p-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:bg-zinc-300 dark:disabled:bg-zinc-700"
+                    >
+                        <Send size={16} />
+                    </button>
                 </div>
+
             </div>
         </motion.div>
     );
