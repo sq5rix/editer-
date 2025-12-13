@@ -278,6 +278,13 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
           onChange={(e) => onChange(block.id, e.target.value)}
           onPaste={(e) => onPaste && onPaste(block.id, e)}
           onFocus={() => onFocus(block.id)}
+          onKeyDown={(e) => {
+            if ((e.key === 'Backspace' || e.key === 'Delete') && block.content === '' && onRemove) {
+                // Prevent default to ensure no weird behavior
+                // though on empty input it matters less
+                onRemove(block.id);
+            }
+          }}
           style={textStyle}
           className={`${commonClasses} resize-none`}
           placeholder={block.type === 'h1' ? "Chapter Title..." : "Start writing..."}
