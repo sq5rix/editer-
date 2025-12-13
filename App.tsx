@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather, Book } from 'lucide-react';
+import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather, Book, ArrowRightLeft, ThumbsUp } from 'lucide-react';
 import { motion, Reorder } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -22,6 +22,8 @@ const App: React.FC = () => {
   const [blocks, setBlocks] = useState<Block[]>([
     { id: uuidv4(), type: 'p', content: '' }
   ]);
+  const [originalSnapshot, setOriginalSnapshot] = useState<Block[]>([]); // For Edit Mode "Right Pane"
+
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [selectionRect, setSelectionRect] = useState<{ top: number; left: number } | null>(null);
   const [selectedText, setSelectedText] = useState<string>("");
@@ -40,10 +42,15 @@ const App: React.FC = () => {
   const [history, setHistory] = useState<Block[][]>([]);
   const [redoStack, setRedoStack] = useState<Block[][]>([]);
 
-  // Context Menu State for Shuffle Mode
+  // Context Menu State
   const [menuMode, setMenuMode] = useState<'selection' | 'block'>('selection');
-  const [contextBlockId, setContextBlockId] = useState<string | null>(null);
+  const [contextBlockId, setContextBlockId] = useState<string | null>(null); // Targeted block for AI ops
   
+  // Scroll Sync Refs
+  const leftPaneRef = useRef<HTMLDivElement>(null);
+  const rightPaneRef = useRef<HTMLDivElement>(null);
+  const isSyncingScroll = useRef(false);
+
   // Typography Settings
   const [typography, setTypography] = useState<TypographySettings>({
     fontFamily: 'serif',
@@ -65,6 +72,52 @@ const App: React.FC = () => {
       root.classList.add(theme);
     }
   }, [theme]);
+
+  // -- Mode Switching Logic --
+  const handleModeSwitch = (newMode: Mode) => {
+    // When entering edit mode, take a snapshot if we haven't recently? 
+    // Actually, simply overwrite snapshot with current state to start "fresh" session
+    if (newMode === 'edit') {
+       setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
+       setSelectionRect(null); // Clear any old menus
+    }
+    setMode(newMode);
+    setSelectionRect(null);
+  };
+
+  const handleApproveChanges = () => {
+    // Update the "Original" snapshot to match current Live blocks
+    setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
+    // Optional visual feedback could go here
+  };
+
+  // -- Scroll Sync Logic (Edit Mode) --
+  const handleScrollSync = (source: 'left' | 'right') => {
+    if (mode !== 'edit') return;
+    if (isSyncingScroll.current) return;
+
+    isSyncingScroll.current = true;
+    const left = leftPaneRef.current;
+    const right = rightPaneRef.current;
+
+    if (left && right) {
+        const src = source === 'left' ? left : right;
+        const dest = source === 'left' ? right : left;
+        
+        // Calculate percentage
+        const percentage = src.scrollTop / (src.scrollHeight - src.clientHeight);
+        
+        // Apply to dest (if scrollable)
+        if (dest.scrollHeight > dest.clientHeight) {
+            dest.scrollTop = percentage * (dest.scrollHeight - dest.clientHeight);
+        }
+    }
+
+    // Debounce lock
+    setTimeout(() => {
+        isSyncingScroll.current = false;
+    }, 50);
+  };
 
   // -- Undo/Redo Logic --
   const saveHistory = useCallback(() => {
@@ -105,7 +158,6 @@ const App: React.FC = () => {
       // Only process selection in Edit Mode
       if (mode !== 'edit') {
         if (mode === 'write') {
-             // In write mode, we generally don't show the menu unless explicitly requested
              if (menuMode === 'selection' && selectionRect) {
                  setSelectionRect(null);
                  setSelectedText("");
@@ -123,7 +175,6 @@ const App: React.FC = () => {
         return;
       }
 
-      // Important: Check if we are selecting inside the editor area
       const anchorNode = selection.anchorNode;
       const isEditor = anchorNode?.parentElement?.closest('main');
 
@@ -132,13 +183,16 @@ const App: React.FC = () => {
           return;
       }
 
+      // Identify which block ID this selection belongs to
+      const blockElement = anchorNode?.parentElement?.closest('[data-block-id]');
+      const blockId = blockElement?.getAttribute('data-block-id');
+      if (blockId) setContextBlockId(blockId);
+
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       
-      // Safety check for weird zero-rects
       if (rect.width === 0 && rect.height === 0) return;
 
-      // Position logic: Use bottom to place menu BELOW selection (avoiding iOS menu which is above)
       setSelectionRect({
         top: rect.bottom, 
         left: rect.left + (rect.width / 2)
@@ -147,7 +201,6 @@ const App: React.FC = () => {
       setMenuMode('selection');
     };
 
-    // 'selectionchange' fires on document
     document.addEventListener('selectionchange', handleSelection);
     window.addEventListener('scroll', handleSelection);
     
@@ -164,16 +217,16 @@ const App: React.FC = () => {
 
   const handleBlockDoubleTap = (id: string) => {
     setActiveBlockId(id);
-    setMode('write');
+    // In edit mode (split screen), we don't switch to 'write' mode globally 
+    // because edit mode *is* now the writing interface for the left pane.
   };
 
   const handleBlockPaste = (id: string, e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const text = e.clipboardData.getData('text');
     
-    // Check if the pasted text has structure that needs parsing (newlines or long text)
     if (text.includes('\n') || text.length > 150) {
       e.preventDefault();
-      saveHistory(); // Save before paste
+      saveHistory(); 
       
       const newBlocksData = parseTextToBlocks(text);
       if (newBlocksData.length === 0) return;
@@ -185,11 +238,9 @@ const App: React.FC = () => {
         const currentBlock = prev[index];
         const newBlockList = [...prev];
 
-        // If the current block is effectively empty, replace it with the pasted blocks
         if (currentBlock.content.trim() === '') {
            newBlockList.splice(index, 1, ...newBlocksData);
         } else {
-           // Otherwise, insert the new blocks after the current one
            newBlockList.splice(index + 1, 0, ...newBlocksData);
         }
         
@@ -199,7 +250,7 @@ const App: React.FC = () => {
   };
 
   const handleShuffleReorder = (newBlocks: Block[]) => {
-      saveHistory(); // Save before reorder
+      saveHistory(); 
       setBlocks(newBlocks);
   };
 
@@ -213,7 +264,7 @@ const App: React.FC = () => {
         const base64 = reader.result as string;
         const base64Data = base64.split(',')[1];
         try {
-          saveHistory(); // Save before OCR import
+          saveHistory(); 
           const text = await GeminiService.transcribeImage(base64Data);
           const newBlocks = parseTextToBlocks(text);
           if (blocks.length === 1 && blocks[0].content === '') {
@@ -226,7 +277,6 @@ const App: React.FC = () => {
           alert('Failed to read image. Please try again.');
         } finally {
           setLoading(false);
-          // Reset file input
           if (fileInputRef.current) fileInputRef.current.value = '';
         }
       };
@@ -258,7 +308,7 @@ const App: React.FC = () => {
   const handleShuffleSelect = (id: string) => {
       setActiveBlockId(id);
       setMode('write');
-      setSelectionRect(null); // Close any open menu
+      setSelectionRect(null); 
   };
 
   const handleShuffleContextMenu = (id: string, position: { top: number; left: number }) => {
@@ -274,7 +324,7 @@ const App: React.FC = () => {
     setLoading(true);
     setSidebarOpen(true);
     setSuggestion(null);
-    setSelectionRect(null); // Hide menu while processing
+    setSelectionRect(null);
 
     let results: string[] = [];
     
@@ -291,13 +341,17 @@ const App: React.FC = () => {
   };
 
   const handleBlockAnalysis = async (blockId: string, type: 'sensory' | 'show-dont-tell') => {
+    // If context block isn't set (e.g. from margin button), set it
+    if (!contextBlockId) setContextBlockId(blockId);
+    
+    // Find content from LIVE blocks, not snapshot, to ensure we analyze current state
     const block = blocks.find(b => b.id === blockId);
     if (!block) return;
 
     setLoading(true);
     setSidebarOpen(true);
     setSuggestion(null);
-    setSelectionRect(null); // Hide menu
+    setSelectionRect(null);
 
     const results = await GeminiService.analyzeParagraph(block.content, type);
     
@@ -312,7 +366,6 @@ const App: React.FC = () => {
   const handleCustomPrompt = async (prompt: string) => {
     let textToAnalyze = selectedText;
     
-    // If no text selected, but contextBlockId exists (from shuffle mode), use that block
     if (!textToAnalyze && contextBlockId && menuMode === 'block') {
         const block = blocks.find(b => b.id === contextBlockId);
         if (block) textToAnalyze = block.content;
@@ -328,7 +381,7 @@ const App: React.FC = () => {
     const results = await GeminiService.customRewrite(textToAnalyze, prompt);
 
     setSuggestion({
-      type: 'expand', // 'expand' works well as a generic type for the UI (shows "Variations")
+      type: 'expand',
       originalText: textToAnalyze,
       options: results
     });
@@ -336,22 +389,50 @@ const App: React.FC = () => {
   };
 
   const applySuggestion = (text: string) => {
-    saveHistory(); // Save before applying changes
+    saveHistory(); 
     
-    if (suggestion?.type === 'sensory' || suggestion?.type === 'show-dont-tell') {
-       const blockIndex = blocks.findIndex(b => b.content === suggestion.originalText);
-       if (blockIndex !== -1) {
-           const newBlocks = [...blocks];
-           newBlocks[blockIndex] = { ...newBlocks[blockIndex], content: text };
-           setBlocks(newBlocks);
-       }
+    // Logic: Always apply to the Live Blocks state using contextBlockId
+    // If contextBlockId is missing, fallback to string matching (less reliable)
+
+    if (contextBlockId) {
+       setBlocks(prev => prev.map(b => {
+           if (b.id !== contextBlockId) return b;
+           
+           // If it's a full replacement (sensory/show-dont-tell)
+           if (suggestion?.type === 'sensory' || suggestion?.type === 'show-dont-tell') {
+               return { ...b, content: text };
+           }
+
+           // If it's a partial replacement (synonym/grammar)
+           // We try to replace the *original selected text* within the block
+           // Note: This might fail if the user edited the live block since selection.
+           // A more robust app would track indices, but string replace is MVP.
+           if (suggestion?.originalText && b.content.includes(suggestion.originalText)) {
+               return { ...b, content: b.content.replace(suggestion.originalText, text) };
+           }
+           
+           // Fallback: If original text not found (maybe edited), just append? Or replace whole?
+           // For safety, if we can't find the exact match, we don't corrupt the block.
+           return b;
+       }));
     } else {
-      const block = blocks.find(b => b.content.includes(suggestion?.originalText || ''));
-      if (block) {
-        const newContent = block.content.replace(suggestion?.originalText || '', text);
-        handleBlockChange(block.id, newContent);
-      }
+        // Fallback for when ID is lost
+        if (suggestion?.type === 'sensory' || suggestion?.type === 'show-dont-tell') {
+           const blockIndex = blocks.findIndex(b => b.content === suggestion.originalText);
+           if (blockIndex !== -1) {
+               const newBlocks = [...blocks];
+               newBlocks[blockIndex] = { ...newBlocks[blockIndex], content: text };
+               setBlocks(newBlocks);
+           }
+        } else {
+          const block = blocks.find(b => b.content.includes(suggestion?.originalText || ''));
+          if (block) {
+            const newContent = block.content.replace(suggestion?.originalText || '', text);
+            handleBlockChange(block.id, newContent);
+          }
+        }
     }
+
     setSidebarOpen(false);
     window.getSelection()?.removeAllRanges();
     setSelectionRect(null);
@@ -363,9 +444,7 @@ const App: React.FC = () => {
       className="min-h-screen relative font-sans selection:bg-amber-200 dark:selection:bg-amber-900/50 touch-manipulation"
       // Clear menu if clicking elsewhere
       onClick={(e) => {
-          // Don't close if clicking inside the floating menu (buttons, inputs)
           if ((e.target as HTMLElement).closest('.fixed.z-50')) return;
-          
           if (selectionRect && (e.target as HTMLElement).tagName !== 'BUTTON') {
               setSelectionRect(null);
           }
@@ -393,7 +472,7 @@ const App: React.FC = () => {
             {/* Mode Switcher */}
             <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 shadow-inner border border-zinc-200 dark:border-zinc-700">
                 <button 
-                    onClick={() => { setMode('metadata'); setSelectionRect(null); }}
+                    onClick={() => handleModeSwitch('metadata')}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'metadata' 
                         ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
@@ -403,7 +482,7 @@ const App: React.FC = () => {
                     <Book size={14} /> <span className="hidden sm:inline">Meta</span>
                 </button>
                 <button 
-                    onClick={() => { setMode('braindump'); setSelectionRect(null); }}
+                    onClick={() => handleModeSwitch('braindump')}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'braindump' 
                         ? 'bg-white dark:bg-zinc-700 text-teal-600 dark:text-teal-400 shadow-sm' 
@@ -413,7 +492,7 @@ const App: React.FC = () => {
                     <Brain size={14} /> <span className="hidden sm:inline">Brain</span>
                 </button>
                 <button 
-                    onClick={() => { setMode('characters'); setSelectionRect(null); }}
+                    onClick={() => handleModeSwitch('characters')}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'characters' 
                         ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
@@ -423,7 +502,7 @@ const App: React.FC = () => {
                     <User size={14} /> <span className="hidden sm:inline">Characters</span>
                 </button>
                 <button 
-                    onClick={() => { setMode('research'); setSelectionRect(null); }}
+                    onClick={() => handleModeSwitch('research')}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'research' 
                         ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
@@ -433,7 +512,7 @@ const App: React.FC = () => {
                     <Globe size={14} /> <span className="hidden sm:inline">Research</span>
                 </button>
                 <button 
-                    onClick={() => { setMode('write'); setSelectionRect(null); }}
+                    onClick={() => handleModeSwitch('write')}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'write' 
                         ? 'bg-white dark:bg-zinc-700 text-ink dark:text-white shadow-sm' 
@@ -443,7 +522,7 @@ const App: React.FC = () => {
                     <PenTool size={14} /> <span className="hidden sm:inline">Write</span>
                 </button>
                 <button 
-                    onClick={() => { setMode('edit'); setSelectionRect(null); }}
+                    onClick={() => handleModeSwitch('edit')}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'edit' 
                         ? 'bg-white dark:bg-zinc-700 text-amber-600 dark:text-amber-400 shadow-sm' 
@@ -453,7 +532,7 @@ const App: React.FC = () => {
                     <Edit3 size={14} /> <span className="hidden sm:inline">Edit</span>
                 </button>
                 <button 
-                    onClick={() => { setMode('shuffle'); setSelectionRect(null); }}
+                    onClick={() => handleModeSwitch('shuffle')}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'shuffle' 
                         ? 'bg-white dark:bg-zinc-700 text-teal-600 dark:text-teal-400 shadow-sm' 
@@ -463,7 +542,7 @@ const App: React.FC = () => {
                     <Shuffle size={14} /> <span className="hidden sm:inline">Shuffle</span>
                 </button>
                 <button 
-                    onClick={() => { setMode('analysis'); setSelectionRect(null); }}
+                    onClick={() => handleModeSwitch('analysis')}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'analysis' 
                         ? 'bg-white dark:bg-zinc-700 text-amber-600 dark:text-amber-400 shadow-sm' 
@@ -481,6 +560,7 @@ const App: React.FC = () => {
         </div>
 
         <div className="pointer-events-auto flex gap-2 sm:gap-3 items-center">
+             {/* Common Tools - Available everywhere except modal-like modes */}
              {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && mode !== 'metadata' && (
                <>
                  <button 
@@ -503,14 +583,16 @@ const App: React.FC = () => {
                  
                  <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
 
-                 <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-2 rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200 transition-all"
-                    title="Import Handwriting"
-                 >
-                    <Camera size={18} />
-                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
-                 </button>
+                 {mode !== 'edit' && (
+                    <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-2 rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200 transition-all"
+                        title="Import Handwriting"
+                    >
+                        <Camera size={18} />
+                        <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
+                    </button>
+                 )}
                </>
              )}
 
@@ -522,7 +604,18 @@ const App: React.FC = () => {
                 {globalCopySuccess ? <Check size={18} /> : <Copy size={18} />}
              </button>
 
-             {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && mode !== 'metadata' && (
+             {/* Approve Button (Only Edit Mode) */}
+             {mode === 'edit' && (
+                <button
+                    onClick={handleApproveChanges}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all"
+                    title="Sync Original with Live"
+                >
+                    <ThumbsUp size={14} /> Approve
+                </button>
+             )}
+
+             {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && mode !== 'metadata' && mode !== 'edit' && (
                <button 
                   onClick={handleClearText}
                   className="p-2 rounded-full text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all"
@@ -534,7 +627,7 @@ const App: React.FC = () => {
 
              <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
 
-             {/* Consolidated Settings Button */}
+             {/* Settings Button */}
              <button 
                onClick={() => setSettingsOpen(true)} 
                className="p-3 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-all touch-manipulation text-zinc-600 dark:text-zinc-400 hover:text-ink dark:hover:text-zinc-200"
@@ -546,7 +639,9 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Editor Area */}
-      <main className={`mx-auto pt-32 pb-24 px-6 md:px-12 relative z-10 min-h-screen transition-all duration-300 max-w-3xl flex flex-col`}>
+      {/* Dynamic styling for Edit Mode (Split Screen) */}
+      <main className={`mx-auto pt-32 pb-24 px-6 md:px-12 relative z-10 min-h-screen transition-all duration-300 flex flex-col ${mode === 'edit' ? 'max-w-7xl' : 'max-w-3xl'}`}>
+        
         {mode === 'braindump' ? (
            <BraindumpView 
               typography={typography}
@@ -583,6 +678,65 @@ const App: React.FC = () => {
               text={blocks.map(b => b.content).join('\n\n')}
               typography={typography}
            />
+        ) : mode === 'edit' ? (
+           // -- SPLIT SCREEN EDIT MODE --
+           <div className="grid grid-cols-2 gap-8 h-[calc(100vh-200px)]">
+               
+               {/* LEFT PANE (LIVE / EDITABLE) */}
+               <div className="flex flex-col">
+                   <div className="mb-2 flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">
+                       <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                       Live Editor
+                   </div>
+                   <div 
+                      ref={leftPaneRef}
+                      onScroll={() => handleScrollSync('left')}
+                      className="flex-1 overflow-y-auto pr-4 border-r border-zinc-200 dark:border-zinc-800"
+                   >
+                        {blocks.map((block) => (
+                            <EditorBlock
+                                key={block.id}
+                                block={block}
+                                isActive={activeBlockId === block.id}
+                                onChange={handleBlockChange}
+                                onPaste={handleBlockPaste}
+                                onFocus={(id) => { setActiveBlockId(id); setContextBlockId(id); }}
+                                onAnalyze={handleBlockAnalysis}
+                                typography={typography}
+                                mode="edit" // Pass edit mode so the margin buttons appear
+                                readOnly={false}
+                            />
+                        ))}
+                   </div>
+               </div>
+
+               {/* RIGHT PANE (ORIGINAL / SNAPSHOT) */}
+               <div className="flex flex-col">
+                   <div className="mb-2 flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest">
+                       <ArrowRightLeft size={12} />
+                       Original
+                   </div>
+                   <div 
+                       ref={rightPaneRef}
+                       onScroll={() => handleScrollSync('right')}
+                       className="flex-1 overflow-y-auto pl-4 opacity-70 hover:opacity-100 transition-opacity"
+                   >
+                        {originalSnapshot.map((block) => (
+                            <EditorBlock
+                                key={block.id}
+                                block={block}
+                                isActive={false}
+                                mode="edit"
+                                onChange={() => {}}
+                                onFocus={() => {}}
+                                onAnalyze={() => {}}
+                                typography={typography}
+                                readOnly={true} // Force static render
+                            />
+                        ))}
+                   </div>
+               </div>
+           </div>
         ) : mode === 'shuffle' ? (
            <Reorder.Group axis="y" values={blocks} onReorder={handleShuffleReorder} className="flex flex-col gap-4">
               {blocks.map((block) => (
@@ -602,6 +756,7 @@ const App: React.FC = () => {
               ))}
            </Reorder.Group>
         ) : (
+          // -- STANDARD WRITE MODE --
           <>
             {blocks.map((block) => (
                 <EditorBlock
@@ -618,7 +773,6 @@ const App: React.FC = () => {
                 />
             ))}
 
-            {/* Empty state or add new block hint (Only in Write Mode) */}
             {mode === 'write' && (
               <div 
                   onClick={() => {
@@ -667,8 +821,6 @@ const App: React.FC = () => {
         typography={typography}
         onTypographyChange={setTypography}
       />
-      
-      {/* Removed Bottom Toolbar */}
 
     </div>
   );

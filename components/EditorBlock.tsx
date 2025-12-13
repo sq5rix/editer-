@@ -17,6 +17,7 @@ interface EditorBlockProps {
   onShuffleSelect?: (id: string) => void;
   onShuffleContextMenu?: (id: string, position: { top: number; left: number }) => void;
   onDoubleTap?: (id: string) => void;
+  readOnly?: boolean;
 }
 
 const EditorBlock: React.FC<EditorBlockProps> = ({ 
@@ -30,7 +31,8 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   typography,
   onShuffleSelect,
   onShuffleContextMenu,
-  onDoubleTap
+  onDoubleTap,
+  readOnly = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -43,9 +45,9 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startPos = useRef<{ x: number; y: number } | null>(null);
 
-  // Auto-focus textarea when switching to write mode if active
+  // Auto-focus textarea when switching to write/edit mode if active
   useEffect(() => {
-    if (isActive && mode === 'write' && textareaRef.current) {
+    if (isActive && (mode === 'write' || (mode === 'edit' && !readOnly)) && textareaRef.current) {
       setTimeout(() => {
         textareaRef.current?.focus();
         const val = textareaRef.current?.value;
@@ -56,7 +58,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
         textareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 50);
     }
-  }, [mode, isActive]);
+  }, [mode, isActive, readOnly]);
 
   const getFontClass = () => {
     if (block.type === 'h1') return 'font-display';
@@ -70,7 +72,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   const textStyle = {
     fontSize: block.type === 'h1' ? `${Math.max(typography.fontSize * 2, 24)}px` : `${typography.fontSize}px`,
     lineHeight: block.type === 'h1' ? '1.2' : '1.8',
-    opacity: typography.contrast, // Apply contrast setting
+    opacity: readOnly ? typography.contrast * 0.7 : typography.contrast, // Dim read-only slightly
   };
 
   const commonClasses = `w-full bg-transparent outline-none border-none transition-all duration-300 ${getFontClass()} ${
@@ -81,13 +83,15 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
 
   // --- CLICK / TAP HANDLER ---
   const handleClick = (e: React.MouseEvent) => {
-    // 1. Write Mode Logic
-    if (mode === 'write') {
+    if (readOnly) return; // Ignore interactions in read-only mode
+
+    // 1. Write Mode Logic (or Edit Mode Live Pane)
+    if (mode === 'write' || (mode === 'edit' && !readOnly)) {
       onFocus(block.id);
       return;
     }
 
-    // 2. Edit Mode Double Tap Logic
+    // 2. Edit Mode Double Tap Logic (if allowed)
     // We use manual timing because onDoubleClick is inconsistent on some touch devices
     if (mode === 'edit' && onDoubleTap) {
       const now = Date.now();
@@ -95,7 +99,6 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
       
       if (timeDiff < 300 && timeDiff > 0) {
         onDoubleTap(block.id);
-        // Reset to avoid triple-click triggering it again immediately
         lastClickTime.current = 0; 
       } else {
         lastClickTime.current = now;
@@ -128,7 +131,6 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
       const moveX = Math.abs(e.clientX - startPos.current.x);
       const moveY = Math.abs(e.clientY - startPos.current.y);
       
-      // If moved more than 10px, treat as scroll/drag and cancel clicks/long-press
       if (moveX > 10 || moveY > 10) {
           if (pressTimer.current) clearTimeout(pressTimer.current);
           startPos.current = null;
@@ -137,15 +139,13 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
 
   const handlePointerUp = (e: React.PointerEvent) => {
       if (pressTimer.current) clearTimeout(pressTimer.current);
-      
-      // If startPos is still set, it means no long-press fired and no scroll occurred
       if (startPos.current) {
           if (onShuffleSelect) onShuffleSelect(block.id);
       }
       startPos.current = null;
   };
 
-  // --- SHUFFLE MODE RENDER (REORDER ITEM) ---
+  // --- SHUFFLE MODE RENDER ---
   if (mode === 'shuffle') {
     return (
       <Reorder.Item
@@ -161,6 +161,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
+        data-block-id={block.id}
       >
         <div 
           className="drag-handle mt-1 cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-500 dark:hover:text-zinc-400 transition-colors p-1 touch-none select-none"
@@ -170,8 +171,6 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
         </div>
         
         <div className="flex-1 min-w-0 pointer-events-none">
-          {/* Note: pointer-events-none on content to allow parent div to catch events, 
-              but text selection in shuffle mode is disabled anyway by ui-no-select on parent */}
           <div 
             className="text-sm text-zinc-900 dark:text-white font-serif leading-relaxed line-clamp-3"
             style={{ opacity: typography.contrast }}
@@ -179,55 +178,54 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
               {block.content || <span className="italic opacity-50">Empty block...</span>}
           </div>
         </div>
-        
-        {/* Visual hint for H1 */}
-        {block.type === 'h1' && (
-           <div className="absolute right-4 top-4 px-2 py-0.5 bg-zinc-100 dark:bg-zinc-700 rounded text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-             Heading
-           </div>
-        )}
       </Reorder.Item>
     );
   }
   
   // --- WRITE / EDIT MODE RENDER ---
+  // In the new Edit Mode:
+  // Left pane uses mode='edit', readOnly=false (Editable Textarea)
+  // Right pane uses mode='edit', readOnly=true (Static Div)
+  
   return (
     <motion.div
-      layoutId={block.id}
+      layoutId={!readOnly ? block.id : `${block.id}-readonly`}
       ref={containerRef}
+      data-block-id={block.id}
       className={`relative group transition-all duration-500 ease-in-out my-4 pl-4 md:pl-0 ${
-        isActive && mode === 'write'
+        isActive && mode === 'write' && !readOnly
           ? 'translate-x-0' 
-          : mode === 'edit' ? 'hover:bg-zinc-50 dark:hover:bg-zinc-900/30 rounded-lg -ml-4 pl-4 pr-2 py-2' : 'hover:opacity-100'
+          : mode === 'edit' && !readOnly ? 'hover:bg-zinc-50 dark:hover:bg-zinc-900/30 rounded-lg -ml-4 pl-4 pr-2 py-2' : 'hover:opacity-100'
       }`}
       style={{ 
-        // If not active and not edit, apply a base opacity, but multiply by contrast setting
         opacity: (isActive || mode === 'edit') ? 1 : 0.8 
       }}
       onClick={handleClick}
     >
-       {/* Active Block Indicator / Margin Actions - ONLY IN EDIT MODE */}
-       <div className={`absolute -left-12 top-0 h-full flex flex-col justify-center items-end gap-2 pr-2 transition-opacity duration-300 ${mode === 'edit' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-          <button 
-            onClick={(e) => { e.stopPropagation(); onAnalyze(block.id, 'sensory'); }}
-            className="p-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30 dark:hover:text-amber-500 transition-colors shadow-sm ui-no-select touch-manipulation"
-            title="Sensorize"
-          >
-            <Eye size={16} />
-          </button>
-          <button 
-            onClick={(e) => { e.stopPropagation(); onAnalyze(block.id, 'show-dont-tell'); }}
-            className="p-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30 dark:hover:text-amber-500 transition-colors shadow-sm ui-no-select touch-manipulation"
-            title="Show, Don't Tell"
-          >
-            <BookOpen size={16} />
-          </button>
-       </div>
+       {/* Active Block Indicator / Margin Actions - ONLY IN EDIT MODE LIVE PANE */}
+       {!readOnly && mode === 'edit' && (
+           <div className={`absolute -left-12 top-0 h-full flex flex-col justify-center items-end gap-2 pr-2 transition-opacity duration-300 opacity-100 pointer-events-auto`}>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onAnalyze(block.id, 'sensory'); }}
+                className="p-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30 dark:hover:text-amber-500 transition-colors shadow-sm ui-no-select touch-manipulation"
+                title="Sensorize"
+              >
+                <Eye size={16} />
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); onAnalyze(block.id, 'show-dont-tell'); }}
+                className="p-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30 dark:hover:text-amber-500 transition-colors shadow-sm ui-no-select touch-manipulation"
+                title="Show, Don't Tell"
+              >
+                <BookOpen size={16} />
+              </button>
+           </div>
+       )}
 
        {/* Visual Marker for Active Paragraph - Write Mode Only */}
-       <div className={`absolute left-[-20px] top-0 bottom-0 w-[3px] rounded-full bg-amber-500 transition-all duration-500 ${isActive && mode === 'write' ? 'scale-y-100 opacity-100' : 'scale-y-0 opacity-0'}`} />
+       <div className={`absolute left-[-20px] top-0 bottom-0 w-[3px] rounded-full bg-amber-500 transition-all duration-500 ${isActive && mode === 'write' && !readOnly ? 'scale-y-100 opacity-100' : 'scale-y-0 opacity-0'}`} />
 
-      {mode === 'write' ? (
+      {(mode === 'write' || (mode === 'edit' && !readOnly)) ? (
         <TextareaAutosize
           ref={textareaRef}
           value={block.content}
@@ -239,11 +237,11 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
           placeholder={block.type === 'h1' ? "Chapter Title..." : "Start writing..."}
         />
       ) : (
-        /* Render as a DIV in Edit Mode */
+        /* Render as a DIV in ReadOnly or old Edit Mode */
         <div 
           style={textStyle}
           className={`${commonClasses} whitespace-pre-wrap cursor-text selection:bg-amber-200 dark:selection:bg-amber-900/60`}
-          onContextMenu={(e) => e.preventDefault()}
+          onContextMenu={(e) => !readOnly && e.preventDefault()}
         >
           {block.content || <span className="opacity-30 italic">Empty block</span>}
         </div>
