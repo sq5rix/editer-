@@ -434,6 +434,26 @@ const App: React.FC = () => {
     setSelectionRect(null);
   };
 
+  // Helper to Render Mode Button
+  const ModeBtn = ({ id, icon: Icon, label }: { id: Mode, icon: any, label: string }) => {
+      const isActive = mode === id;
+      return (
+        <button 
+            onClick={() => handleModeSwitch(id)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
+                isActive 
+                ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+            }`}
+            title={label}
+        >
+            <Icon size={14} /> 
+            {/* Show label if active OR on large screens. Hidden otherwise to save space. */}
+            <span className={`${isActive ? 'inline' : 'hidden lg:inline'}`}>{label}</span>
+        </button>
+      );
+  };
+
   // -- Layout --
   return (
     <div 
@@ -460,177 +480,112 @@ const App: React.FC = () => {
       )}
 
       {/* Header / Nav */}
-      <header className="fixed top-0 left-0 w-full p-6 flex justify-between items-center z-30 bg-gradient-to-b from-paper via-paper/90 to-transparent dark:from-zinc-950 dark:via-zinc-950/90 h-24 pointer-events-none ui-no-select">
-        <div className="pointer-events-auto flex items-center gap-4">
-            <h1 className="font-display font-bold text-2xl tracking-wider text-ink dark:text-zinc-100 hidden md:block">InkFlow</h1>
-            <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-800 mx-2 hidden md:block"></div>
+      <header className="fixed top-0 left-0 w-full z-30 bg-gradient-to-b from-paper via-paper/90 to-transparent dark:from-zinc-950 dark:via-zinc-950/90 h-24 pointer-events-none ui-no-select flex items-center">
+        
+        {/* Inner centered container to prevent truncation and center content */}
+        <div className="w-full max-w-7xl mx-auto px-4 md:px-6 flex justify-between items-center pointer-events-auto">
             
-            {/* Mode Switcher */}
-            <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 shadow-inner border border-zinc-200 dark:border-zinc-700">
-                <button 
-                    onClick={() => handleModeSwitch('metadata')}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
-                        mode === 'metadata' 
-                        ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
-                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
-                    }`}
-                >
-                    <Book size={14} /> <span className="hidden sm:inline">Meta</span>
-                </button>
-                <button 
-                    onClick={() => handleModeSwitch('braindump')}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
-                        mode === 'braindump' 
-                        ? 'bg-white dark:bg-zinc-700 text-teal-600 dark:text-teal-400 shadow-sm' 
-                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
-                    }`}
-                >
-                    <Brain size={14} /> <span className="hidden sm:inline">Brain</span>
-                </button>
-                <button 
-                    onClick={() => handleModeSwitch('characters')}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
-                        mode === 'characters' 
-                        ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
-                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
-                    }`}
-                >
-                    <User size={14} /> <span className="hidden sm:inline">Characters</span>
-                </button>
-                <button 
-                    onClick={() => handleModeSwitch('research')}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
-                        mode === 'research' 
-                        ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
-                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
-                    }`}
-                >
-                    <Globe size={14} /> <span className="hidden sm:inline">Research</span>
-                </button>
-                <button 
-                    onClick={() => handleModeSwitch('write')}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
-                        mode === 'write' 
-                        ? 'bg-white dark:bg-zinc-700 text-ink dark:text-white shadow-sm' 
-                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
-                    }`}
-                >
-                    <PenTool size={14} /> <span className="hidden sm:inline">Write</span>
-                </button>
-                <button 
-                    onClick={() => handleModeSwitch('edit')}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
-                        mode === 'edit' 
-                        ? 'bg-white dark:bg-zinc-700 text-amber-600 dark:text-amber-400 shadow-sm' 
-                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
-                    }`}
-                >
-                    <Edit3 size={14} /> <span className="hidden sm:inline">Edit</span>
-                </button>
-                <button 
-                    onClick={() => handleModeSwitch('shuffle')}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
-                        mode === 'shuffle' 
-                        ? 'bg-white dark:bg-zinc-700 text-teal-600 dark:text-teal-400 shadow-sm' 
-                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
-                    }`}
-                >
-                    <Shuffle size={14} /> <span className="hidden sm:inline">Shuffle</span>
-                </button>
-                <button 
-                    onClick={() => handleModeSwitch('analysis')}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
-                        mode === 'analysis' 
-                        ? 'bg-white dark:bg-zinc-700 text-amber-600 dark:text-amber-400 shadow-sm' 
-                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
-                    }`}
-                >
-                    <Feather size={14} /> <span className="hidden sm:inline">Style</span>
-                </button>
+            {/* Left Group */}
+            <div className="flex items-center gap-2 md:gap-4 flex-shrink min-w-0">
+                <h1 className="font-display font-bold text-xl md:text-2xl tracking-wider text-ink dark:text-zinc-100 hidden md:block">InkFlow</h1>
+                <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-800 mx-2 hidden md:block"></div>
+                
+                {/* Mode Switcher - Compact */}
+                <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 shadow-inner border border-zinc-200 dark:border-zinc-700 overflow-x-auto no-scrollbar max-w-[60vw] md:max-w-none">
+                    <ModeBtn id="metadata" icon={Book} label="Meta" />
+                    <ModeBtn id="braindump" icon={Brain} label="Brain" />
+                    <ModeBtn id="characters" icon={User} label="Chars" />
+                    <ModeBtn id="research" icon={Globe} label="Research" />
+                    <ModeBtn id="write" icon={PenTool} label="Write" />
+                    <ModeBtn id="edit" icon={Edit3} label="Edit" />
+                    <ModeBtn id="shuffle" icon={Shuffle} label="Shuffle" />
+                    <ModeBtn id="analysis" icon={Feather} label="Style" />
+                </div>
+                
+                <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-800 mx-2 hidden xl:block"></div>
+                <div className="text-xs font-mono text-zinc-500 uppercase tracking-widest hidden xl:block whitespace-nowrap">
+                    {countWords(blocks)} Words
+                </div>
             </div>
-            
-            <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-800 mx-2"></div>
-            <div className="text-xs font-mono text-zinc-500 uppercase tracking-widest hidden sm:block">
-                {countWords(blocks)} Words
-            </div>
-        </div>
 
-        <div className="pointer-events-auto flex gap-2 sm:gap-3 items-center">
-             {/* Common Tools - Available everywhere except modal-like modes */}
-             {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && mode !== 'metadata' && (
-               <>
-                 <button 
-                    onClick={handleUndo}
-                    disabled={history.length === 0}
-                    className={`p-2 rounded-full transition-all ${history.length === 0 ? 'text-zinc-300 dark:text-zinc-700 opacity-50' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200'}`}
-                    title="Undo"
-                 >
-                     <RotateCcw size={18} />
-                 </button>
-
-                 <button 
-                    onClick={handleRedo}
-                    disabled={redoStack.length === 0}
-                    className={`p-2 rounded-full transition-all ${redoStack.length === 0 ? 'text-zinc-300 dark:text-zinc-700 opacity-50' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200'}`}
-                    title="Redo"
-                 >
-                     <RotateCw size={18} />
-                 </button>
-                 
-                 <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
-
-                 {mode !== 'edit' && (
+            {/* Right Group - Tools */}
+            <div className="flex gap-1 md:gap-2 items-center flex-shrink-0 ml-2">
+                {/* Common Tools */}
+                {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && mode !== 'metadata' && (
+                <>
                     <button 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="p-2 rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200 transition-all"
-                        title="Import Handwriting"
+                        onClick={handleUndo}
+                        disabled={history.length === 0}
+                        className={`p-2 rounded-full transition-all ${history.length === 0 ? 'text-zinc-300 dark:text-zinc-700 opacity-50' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200'}`}
+                        title="Undo"
                     >
-                        <Camera size={18} />
-                        <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
+                        <RotateCcw size={18} />
                     </button>
-                 )}
-               </>
-             )}
 
-             <button 
-                onClick={handleGlobalCopy}
-                className={`p-2 rounded-full transition-all ${globalCopySuccess ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200'}`}
-                title="Copy Content"
-             >
-                {globalCopySuccess ? <Check size={18} /> : <Copy size={18} />}
-             </button>
+                    <button 
+                        onClick={handleRedo}
+                        disabled={redoStack.length === 0}
+                        className={`p-2 rounded-full transition-all ${redoStack.length === 0 ? 'text-zinc-300 dark:text-zinc-700 opacity-50' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200'}`}
+                        title="Redo"
+                    >
+                        <RotateCw size={18} />
+                    </button>
+                    
+                    <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1 hidden sm:block"></div>
 
-             {/* Approve Button (Only Edit Mode) */}
-             {mode === 'edit' && (
-                <button
-                    onClick={handleApproveChanges}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all"
-                    title="Sync Original with Live"
+                    {mode !== 'edit' && (
+                        <button 
+                            onClick={() => fileInputRef.current?.click()}
+                            className="p-2 rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200 transition-all hidden sm:block"
+                            title="Import Handwriting"
+                        >
+                            <Camera size={18} />
+                            <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
+                        </button>
+                    )}
+                </>
+                )}
+
+                <button 
+                    onClick={handleGlobalCopy}
+                    className={`p-2 rounded-full transition-all ${globalCopySuccess ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200'}`}
+                    title="Copy Content"
                 >
-                    <ThumbsUp size={14} /> Approve
+                    {globalCopySuccess ? <Check size={18} /> : <Copy size={18} />}
                 </button>
-             )}
 
-             {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && mode !== 'metadata' && mode !== 'edit' && (
-               <button 
-                  onClick={handleClearText}
-                  className="p-2 rounded-full text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all"
-                  title="Clear Text"
-               >
-                  <Trash2 size={18} />
-               </button>
-             )}
+                {/* Approve Button (Only Edit Mode) */}
+                {mode === 'edit' && (
+                    <button
+                        onClick={handleApproveChanges}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap"
+                        title="Sync Original with Live"
+                    >
+                        <ThumbsUp size={14} /> <span className="hidden md:inline">Approve</span>
+                    </button>
+                )}
 
-             <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
+                {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && mode !== 'metadata' && mode !== 'edit' && (
+                <button 
+                    onClick={handleClearText}
+                    className="p-2 rounded-full text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all"
+                    title="Clear Text"
+                >
+                    <Trash2 size={18} />
+                </button>
+                )}
 
-             {/* Settings Button */}
-             <button 
-               onClick={() => setSettingsOpen(true)} 
-               className="p-3 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-all touch-manipulation text-zinc-600 dark:text-zinc-400 hover:text-ink dark:hover:text-zinc-200"
-               title="Settings"
-             >
-                 <Settings size={20} />
-             </button>
+                <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
+
+                {/* Settings Button */}
+                <button 
+                onClick={() => setSettingsOpen(true)} 
+                className="p-3 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-all touch-manipulation text-zinc-600 dark:text-zinc-400 hover:text-ink dark:hover:text-zinc-200"
+                title="Settings"
+                >
+                    <Settings size={20} />
+                </button>
+            </div>
         </div>
       </header>
 
