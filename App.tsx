@@ -358,6 +358,35 @@ const App: React.FC = () => {
     setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: newContent } : b));
   };
 
+  const handleBlockEnter = (id: string, cursorPosition: number) => {
+    saveHistory();
+    const newId = uuidv4();
+    
+    setBlocks(prev => {
+        const index = prev.findIndex(b => b.id === id);
+        if (index === -1) return prev;
+        
+        const currentBlock = prev[index];
+        const textBefore = currentBlock.content.slice(0, cursorPosition);
+        const textAfter = currentBlock.content.slice(cursorPosition);
+        
+        const newBlocks = [...prev];
+        // Update current block content to text before cursor
+        newBlocks[index] = { ...currentBlock, content: textBefore };
+        
+        // Insert new block with content after cursor
+        newBlocks.splice(index + 1, 0, {
+            id: newId,
+            type: 'p',
+            content: textAfter
+        });
+        
+        return newBlocks;
+    });
+    
+    setActiveBlockId(newId);
+  };
+
   const handleRemoveBlock = (id: string) => {
       const index = blocks.findIndex(b => b.id === id);
       if (index > 0) {
@@ -783,6 +812,7 @@ const App: React.FC = () => {
                                 mode="edit" 
                                 readOnly={false}
                                 onRemove={handleRemoveBlock}
+                                onEnter={handleBlockEnter}
                             />
                         ))}
                    </div>
@@ -854,6 +884,7 @@ const App: React.FC = () => {
                     typography={typography}
                     onDoubleTap={handleBlockDoubleTap}
                     onRemove={handleRemoveBlock}
+                    onEnter={handleBlockEnter}
                 />
             ))}
             {mode === 'write' && (

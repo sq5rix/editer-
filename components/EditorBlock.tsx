@@ -19,6 +19,7 @@ interface EditorBlockProps {
   onDoubleTap?: (id: string) => void;
   readOnly?: boolean;
   onRemove?: (id: string) => void;
+  onEnter?: (id: string, cursorPosition: number) => void;
 }
 
 const EditorBlock: React.FC<EditorBlockProps> = ({ 
@@ -34,7 +35,8 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   onShuffleContextMenu,
   onDoubleTap,
   readOnly = false,
-  onRemove
+  onRemove,
+  onEnter
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -57,13 +59,18 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
         } else if (textareaRef.current) {
             textareaRef.current.focus();
             const val = textareaRef.current.value;
-            textareaRef.current.setSelectionRange(val.length, val.length);
+            // If it's a new block (empty), this ensures focus. 
+            // If navigating, we might want to preserve caret, but standard behavior is end or start. 
+            // Currently sets to end.
+            if (document.activeElement !== textareaRef.current) {
+                textareaRef.current.setSelectionRange(val.length, val.length);
+            }
         }
         // Scroll into view
         (hrRef.current || textareaRef.current)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 50);
     }
-  }, [mode, isActive, readOnly, block.type]);
+  }, [mode, isActive, readOnly, block.type, block.id]);
 
   const getFontClass = () => {
     if (block.type === 'h1') return 'font-display';
@@ -279,6 +286,10 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
           onPaste={(e) => onPaste && onPaste(block.id, e)}
           onFocus={() => onFocus(block.id)}
           onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey && onEnter) {
+                e.preventDefault();
+                onEnter(block.id, e.currentTarget.selectionStart);
+            }
             if ((e.key === 'Backspace' || e.key === 'Delete') && block.content === '' && onRemove) {
                 // Prevent default to ensure no weird behavior
                 // though on empty input it matters less
