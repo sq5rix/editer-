@@ -203,23 +203,25 @@ export const generateCharacter = async (prompt: string): Promise<Omit<Character,
   try {
     const response = await ai.models.generateContent({
       model: MODEL_TEXT,
-      contents: `You are an expert narratologist. Create a detailed character profile based on this input: "${prompt}".
+      contents: `You are an expert structural narratologist using Greimas' Actantial Model. 
+      Create a detailed character profile based on this input: "${prompt}".
       
-      CRITICAL: You must analyze the character through the lens of the Greimas Actantial Model.
-      Assign one of the following roles based on the input:
-      - Subject (The hero/protagonist)
-      - Object (What the subject wants)
-      - Sender (What instigates the action)
-      - Receiver (Who benefits)
-      - Helper (Aids the subject)
-      - Opponent (Hinders the subject)
+      CRITICAL: You must analyze the character through the lens of the Greimas Actantial Model, distinguishing between abstract Actants (functions) and concrete Actors (characters).
+      
+      Assign one of the following functional roles (Actants) based on the input:
+      - Subject: The protagonist driven by desire/quest (Axis of Desire).
+      - Object: The concrete or abstract goal pursued by the Subject.
+      - Sender: The origin/instigator of the quest (Axis of Communication).
+      - Receiver: The ultimate beneficiary of the quest.
+      - Helper: Supports the Subject via resources/allies (Axis of Power).
+      - Opponent: Obstructs the Subject via conflict/barriers.
 
       Return JSON only. Structure:
       {
         "name": "Character Name",
         "greimasRole": "One of the 6 roles above",
-        "coreDesire": "1 sentence describing their abstract or concrete goal (The Object)",
-        "description": "A rich, editorial-style paragraph describing appearance, personality, and their narrative function."
+        "coreDesire": "1 sentence describing their relationship to the Object (if Subject) or their function in the axis.",
+        "description": "A rich, editorial-style paragraph describing appearance, personality, and their structural narrative function."
       }`,
       config: {
         responseMimeType: "application/json",
@@ -247,17 +249,25 @@ export const generateCastFromStory = async (storyText: string): Promise<Omit<Cha
   try {
     const response = await ai.models.generateContent({
       model: MODEL_TEXT,
-      contents: `Analyze the following story text. Identify the main cast and map them to the Greimas Actantial Model (Subject, Object, Sender, Receiver, Helper, Opponent).
+      contents: `Analyze the following story text using Greimas' Actantial Model. Identify the main Actors and map them to the 6 Actant functions.
       
-      If the story is incomplete, infer potential characters or create them to fit the narrative structure.
+      DEFINITIONS:
+      • Subject: The protagonist driven by desire/quest (Axis of Desire).
+      • Object: The goal/value pursued by the Subject.
+      • Sender: The force/character that instigates the quest (Axis of Communication).
+      • Receiver: The beneficiary of the quest.
+      • Helper: Aids the Subject (Axis of Power).
+      • Opponent: Hinders the Subject.
+
+      Note: If the story is incomplete, infer potential characters or abstract forces (fate, society) to fill missing structural roles (e.g. Sender or Receiver).
       
       STORY TEXT:
       "${storyText.substring(0, 15000)}"
       
       Return ONLY a JSON array of character objects. Each object must have:
       - name
-      - greimasRole (One of: Subject, Object, Sender, Receiver, Helper, Opponent)
-      - coreDesire (1 sentence)
+      - greimasRole (One of the 6 roles)
+      - coreDesire (1 sentence describing their structural goal or function)
       - description (Editorial style description)
       `,
       config: {
@@ -299,7 +309,7 @@ export const refineCharacter = async (character: Character, userPrompt: string):
 
         const response = await ai.models.generateContent({
             model: MODEL_TEXT,
-            contents: `You are a creative writing assistant helping to develop a character.
+            contents: `You are a creative writing assistant helping to develop a character based on Greimas' Actantial Model.
             
             CONTEXT:
             ${context}
@@ -307,7 +317,7 @@ export const refineCharacter = async (character: Character, userPrompt: string):
             USER REQUEST:
             "${userPrompt}"
 
-            Provide a creative, detailed response that expands on the character. Keep the tone editorial and literary. Do NOT return JSON. Return Markdown text.`,
+            Provide a creative, detailed response that expands on the character. Keep the tone editorial and literary. Ensure suggestions align with their structural role (e.g. Helper should support, Opponent should obstruct). Do NOT return JSON. Return Markdown text.`,
         });
 
         return response.text || "";

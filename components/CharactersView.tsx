@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
-import { User, Plus, Trash2, Copy, Sparkles, Send, Loader2, ChevronDown, ChevronUp, MessageSquare, BookOpen, GripVertical, ArrowDownAZ } from 'lucide-react';
+import { User, Plus, Trash2, Copy, Sparkles, Send, Loader2, ChevronDown, ChevronUp, MessageSquare, BookOpen, GripVertical, ArrowDownAZ, Edit2, Check, X } from 'lucide-react';
 import { Character, TypographySettings, CharacterMessage, User as UserType } from '../types';
 import * as GeminiService from '../services/geminiService';
 import * as FirebaseService from '../services/firebase';
@@ -147,7 +147,13 @@ const CharactersView: React.FC<CharactersViewProps> = ({ onCopy, typography, onA
   };
 
   const handleDelete = (id: string) => {
-      setCharacters(prev => prev.filter(c => c.id !== id));
+      if(window.confirm("Are you sure you want to delete this character?")) {
+        setCharacters(prev => prev.filter(c => c.id !== id));
+      }
+  };
+
+  const handleUpdate = (updatedChar: Character) => {
+      setCharacters(prev => prev.map(c => c.id === updatedChar.id ? updatedChar : c));
   };
 
   const greimasOrder = ['Subject', 'Object', 'Sender', 'Receiver', 'Helper', 'Opponent'];
@@ -235,6 +241,7 @@ const CharactersView: React.FC<CharactersViewProps> = ({ onCopy, typography, onA
                     typography={typography}
                     onDelete={handleDelete}
                     onFollowUp={handleFollowUp}
+                    onUpdate={handleUpdate}
                     isGenerating={generatingId === char.id}
                     colorClass={roleColors[char.greimasRole]}
                     onCopy={onCopy}
@@ -257,13 +264,20 @@ const CharacterCard: React.FC<{
     typography: TypographySettings;
     onDelete: (id: string) => void;
     onFollowUp: (id: string, prompt: string) => void;
+    onUpdate: (char: Character) => void;
     isGenerating: boolean;
     colorClass: string;
     onCopy: (text: string) => void;
-}> = ({ character, typography, onDelete, onFollowUp, isGenerating, colorClass, onCopy }) => {
+}> = ({ character, typography, onDelete, onFollowUp, onUpdate, isGenerating, colorClass, onCopy }) => {
     const [prompt, setPrompt] = useState("");
     const [showHistory, setShowHistory] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editData, setEditData] = useState<Character>(character);
     const dragControls = useDragControls();
+
+    useEffect(() => {
+        setEditData(character);
+    }, [character]);
 
     const handleSend = () => {
         if (prompt.trim()) {
@@ -271,6 +285,16 @@ const CharacterCard: React.FC<{
             setPrompt("");
             setShowHistory(true);
         }
+    };
+
+    const handleSave = () => {
+        onUpdate(editData);
+        setIsEditing(false);
+    };
+
+    const handleCancel = () => {
+        setEditData(character);
+        setIsEditing(false);
     };
 
     return (
@@ -303,36 +327,101 @@ const CharacterCard: React.FC<{
             {/* Top: Card Profile */}
             <div className="p-6 md:p-8 md:pl-12">
                 <div className="flex justify-between items-start mb-4 pl-4 md:pl-0">
-                    <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border ${colorClass}`}>
-                        {character.greimasRole}
+                    <div className="flex-1 mr-4">
+                        {isEditing ? (
+                            <select
+                                value={editData.greimasRole}
+                                onChange={(e) => setEditData({...editData, greimasRole: e.target.value as any})}
+                                className="inline-flex px-2 py-1 rounded-md text-xs font-bold uppercase tracking-widest border bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-600 outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            >
+                                {['Subject', 'Object', 'Sender', 'Receiver', 'Helper', 'Opponent'].map(role => (
+                                    <option key={role} value={role}>{role}</option>
+                                ))}
+                            </select>
+                        ) : (
+                            <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border ${colorClass}`}>
+                                {character.greimasRole}
+                            </div>
+                        )}
                     </div>
+
                     <div className="flex gap-2">
-                        <button onClick={() => onCopy(character.description)} className="p-2 text-zinc-400 hover:text-indigo-600 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition-colors">
-                            <Copy size={16} />
-                        </button>
-                        <button onClick={() => onDelete(character.id)} className="p-2 text-zinc-400 hover:text-red-600 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-                            <Trash2 size={16} />
-                        </button>
+                        {isEditing ? (
+                            <>
+                                <button onClick={handleSave} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-full transition-colors" title="Save">
+                                    <Check size={16} />
+                                </button>
+                                <button onClick={handleCancel} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors" title="Cancel">
+                                    <X size={16} />
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button onClick={() => setIsEditing(true)} className="p-2 text-zinc-400 hover:text-indigo-600 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition-colors" title="Edit">
+                                    <Edit2 size={16} />
+                                </button>
+                                <button onClick={() => onCopy(character.description)} className="p-2 text-zinc-400 hover:text-indigo-600 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition-colors" title="Copy Description">
+                                    <Copy size={16} />
+                                </button>
+                                <button onClick={() => onDelete(character.id)} className="p-2 text-zinc-400 hover:text-red-600 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete">
+                                    <Trash2 size={16} />
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
 
-                <h3 className="font-display font-bold text-2xl text-ink dark:text-zinc-100 mb-2 pl-4 md:pl-0">{character.name}</h3>
+                {isEditing ? (
+                    <input
+                        type="text"
+                        value={editData.name}
+                        onChange={(e) => setEditData({...editData, name: e.target.value})}
+                        className="w-full font-display font-bold text-2xl text-ink dark:text-zinc-100 mb-2 pl-4 md:pl-0 bg-transparent border-b border-dashed border-zinc-300 dark:border-zinc-700 outline-none focus:border-indigo-500 transition-colors"
+                        placeholder="Character Name"
+                    />
+                ) : (
+                    <h3 className="font-display font-bold text-2xl text-ink dark:text-zinc-100 mb-2 pl-4 md:pl-0">{character.name}</h3>
+                )}
                 
                 <div className="mb-6 ml-4 md:ml-0 p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border-l-2 border-indigo-400">
                     <span className="text-xs font-bold text-zinc-400 uppercase mr-2">Core Desire:</span>
-                    <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 italic">{character.coreDesire}</span>
+                    {isEditing ? (
+                        <input
+                            type="text"
+                            value={editData.coreDesire}
+                            onChange={(e) => setEditData({...editData, coreDesire: e.target.value})}
+                            className="w-full bg-transparent border-b border-dashed border-zinc-300 dark:border-zinc-700 text-sm font-medium text-zinc-700 dark:text-zinc-300 italic outline-none focus:border-indigo-500 transition-colors mt-1"
+                            placeholder="What do they want?"
+                        />
+                    ) : (
+                        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 italic">{character.coreDesire}</span>
+                    )}
                 </div>
 
-                <div 
-                    className="prose dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-300 pl-4 md:pl-0"
-                    style={{
-                        fontFamily: typography.fontFamily === 'mono' ? 'JetBrains Mono' : typography.fontFamily === 'sans' ? 'Inter' : 'Merriweather',
-                        fontSize: `${typography.fontSize}px`,
-                        lineHeight: '1.6'
-                    }}
-                >
-                    {character.description}
-                </div>
+                {isEditing ? (
+                     <TextareaAutosize
+                        minRows={3}
+                        value={editData.description}
+                        onChange={(e) => setEditData({...editData, description: e.target.value})}
+                        className="w-full bg-zinc-50 dark:bg-zinc-900/30 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none ml-4 md:ml-0"
+                        style={{
+                            fontFamily: typography.fontFamily === 'mono' ? 'JetBrains Mono' : typography.fontFamily === 'sans' ? 'Inter' : 'Merriweather',
+                            fontSize: `${typography.fontSize}px`,
+                            lineHeight: '1.6'
+                        }}
+                     />
+                ) : (
+                    <div 
+                        className="prose dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-300 pl-4 md:pl-0"
+                        style={{
+                            fontFamily: typography.fontFamily === 'mono' ? 'JetBrains Mono' : typography.fontFamily === 'sans' ? 'Inter' : 'Merriweather',
+                            fontSize: `${typography.fontSize}px`,
+                            lineHeight: '1.6'
+                        }}
+                    >
+                        {character.description}
+                    </div>
+                )}
             </div>
 
             {/* Bottom: Refinements & Notes (Vertical Stack "Braindump Style") */}
