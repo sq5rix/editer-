@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { User, Plus, Trash2, Copy, Sparkles, Send, Loader2, ChevronDown, ChevronUp, MessageSquare, BookOpen } from 'lucide-react';
+import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
+import { User, Plus, Trash2, Copy, Sparkles, Send, Loader2, ChevronDown, ChevronUp, MessageSquare, BookOpen, GripVertical, ArrowDownAZ } from 'lucide-react';
 import { Character, TypographySettings, CharacterMessage, User as UserType } from '../types';
 import * as GeminiService from '../services/geminiService';
 import * as FirebaseService from '../services/firebase';
@@ -150,6 +150,17 @@ const CharactersView: React.FC<CharactersViewProps> = ({ onCopy, typography, onA
       setCharacters(prev => prev.filter(c => c.id !== id));
   };
 
+  const greimasOrder = ['Subject', 'Object', 'Sender', 'Receiver', 'Helper', 'Opponent'];
+
+  const handleSort = () => {
+      const sorted = [...characters].sort((a, b) => {
+          const indexA = greimasOrder.indexOf(a.greimasRole);
+          const indexB = greimasOrder.indexOf(b.greimasRole);
+          return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
+      });
+      setCharacters(sorted);
+  };
+
   const roleColors = {
       'Subject': 'text-blue-600 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800',
       'Object': 'text-amber-600 bg-amber-50 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800',
@@ -173,8 +184,8 @@ const CharactersView: React.FC<CharactersViewProps> = ({ onCopy, typography, onA
                 Describe a role, a desire, or a story concept.
             </p>
 
-            {manuscriptText.length > 200 && (
-                <div className="mb-6 flex justify-center">
+            <div className="mb-6 flex flex-wrap justify-center gap-2">
+                {manuscriptText.length > 200 && (
                     <button 
                         onClick={handleGenerateFromStory}
                         disabled={loading}
@@ -183,8 +194,17 @@ const CharactersView: React.FC<CharactersViewProps> = ({ onCopy, typography, onA
                         {loading ? <Loader2 size={16} className="animate-spin" /> : <BookOpen size={16} />}
                         Analyze Story & Generate Cast
                     </button>
-                </div>
-            )}
+                )}
+                {characters.length > 1 && (
+                    <button 
+                        onClick={handleSort}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-full font-bold text-xs uppercase tracking-wider hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors shadow-sm"
+                    >
+                        <ArrowDownAZ size={16} />
+                        Sort by Role
+                    </button>
+                )}
+            </div>
 
             <form onSubmit={handleCreate} className="relative max-w-xl mx-auto">
                 <input 
@@ -206,7 +226,7 @@ const CharactersView: React.FC<CharactersViewProps> = ({ onCopy, typography, onA
        </div>
 
        {/* Characters Grid */}
-       <div className="grid grid-cols-1 gap-8 pb-32 px-6">
+       <Reorder.Group axis="y" values={characters} onReorder={setCharacters} className="grid grid-cols-1 gap-8 pb-32 px-6">
           <AnimatePresence>
             {characters.map((char) => (
                 <CharacterCard 
@@ -227,7 +247,7 @@ const CharactersView: React.FC<CharactersViewProps> = ({ onCopy, typography, onA
                   No characters forged yet.
               </div>
           )}
-       </div>
+       </Reorder.Group>
     </div>
   );
 };
@@ -243,6 +263,7 @@ const CharacterCard: React.FC<{
 }> = ({ character, typography, onDelete, onFollowUp, isGenerating, colorClass, onCopy }) => {
     const [prompt, setPrompt] = useState("");
     const [showHistory, setShowHistory] = useState(false);
+    const dragControls = useDragControls();
 
     const handleSend = () => {
         if (prompt.trim()) {
@@ -253,16 +274,35 @@ const CharacterCard: React.FC<{
     };
 
     return (
-        <motion.div
-            layout
+        <Reorder.Item
+            value={character}
+            id={character.id}
+            dragListener={false}
+            dragControls={dragControls}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white dark:bg-zinc-800 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden flex flex-col"
+            className="bg-white dark:bg-zinc-800 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-700 overflow-hidden flex flex-col group relative"
         >
+            {/* Drag Handle */}
+            <div 
+                className="absolute top-1/2 -translate-y-1/2 left-2 p-2 cursor-grab active:cursor-grabbing text-zinc-300 hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400 z-10 hidden md:block opacity-0 group-hover:opacity-100 transition-opacity"
+                onPointerDown={(e) => dragControls.start(e)}
+            >
+                <GripVertical size={20} />
+            </div>
+
+            {/* Mobile Drag Handle (Top Right, explicit) */}
+             <div 
+                className="absolute top-2 right-14 md:hidden p-2 cursor-grab active:cursor-grabbing text-zinc-300 z-10"
+                onPointerDown={(e) => dragControls.start(e)}
+            >
+                <GripVertical size={20} />
+            </div>
+
             {/* Top: Card Profile */}
-            <div className="p-6 md:p-8">
-                <div className="flex justify-between items-start mb-4">
+            <div className="p-6 md:p-8 md:pl-12">
+                <div className="flex justify-between items-start mb-4 pl-4 md:pl-0">
                     <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border ${colorClass}`}>
                         {character.greimasRole}
                     </div>
@@ -276,15 +316,15 @@ const CharacterCard: React.FC<{
                     </div>
                 </div>
 
-                <h3 className="font-display font-bold text-2xl text-ink dark:text-zinc-100 mb-2">{character.name}</h3>
+                <h3 className="font-display font-bold text-2xl text-ink dark:text-zinc-100 mb-2 pl-4 md:pl-0">{character.name}</h3>
                 
-                <div className="mb-6 p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border-l-2 border-indigo-400">
+                <div className="mb-6 ml-4 md:ml-0 p-3 bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border-l-2 border-indigo-400">
                     <span className="text-xs font-bold text-zinc-400 uppercase mr-2">Core Desire:</span>
                     <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 italic">{character.coreDesire}</span>
                 </div>
 
                 <div 
-                    className="prose dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-300"
+                    className="prose dark:prose-invert max-w-none text-zinc-600 dark:text-zinc-300 pl-4 md:pl-0"
                     style={{
                         fontFamily: typography.fontFamily === 'mono' ? 'JetBrains Mono' : typography.fontFamily === 'sans' ? 'Inter' : 'Merriweather',
                         fontSize: `${typography.fontSize}px`,
@@ -296,7 +336,7 @@ const CharacterCard: React.FC<{
             </div>
 
             {/* Bottom: Refinements & Notes (Vertical Stack "Braindump Style") */}
-            <div className="border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 p-6 flex flex-col gap-4">
+            <div className="border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 p-6 md:pl-12 flex flex-col gap-4">
                 
                 {/* Expand Toggle if history exists */}
                 {character.history.length > 0 && (
@@ -378,7 +418,7 @@ const CharacterCard: React.FC<{
                 </div>
 
             </div>
-        </motion.div>
+        </Reorder.Item>
     );
 };
 
