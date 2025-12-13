@@ -16,6 +16,7 @@ import BraindumpView from './components/BraindumpView';
 import CharactersView from './components/CharactersView';
 import StyleAnalysisView from './components/StyleAnalysisView';
 import MetadataView from './components/MetadataView';
+import ShuffleSidebar from './components/ShuffleSidebar';
 
 const App: React.FC = () => {
   // -- State --
@@ -252,6 +253,25 @@ const App: React.FC = () => {
   const handleShuffleReorder = (newBlocks: Block[]) => {
       saveHistory(); 
       setBlocks(newBlocks);
+  };
+  
+  // -- Shuffle Drop Logic --
+  const handleShuffleDrop = (e: React.DragEvent) => {
+      e.preventDefault();
+      const text = e.dataTransfer.getData('text/plain');
+      if (text) {
+          handleShuffleInsert(text);
+      }
+  };
+  
+  const handleShuffleInsert = (text: string) => {
+      saveHistory();
+      const newBlock: Block = {
+          id: uuidv4(),
+          type: 'p',
+          content: text
+      };
+      setBlocks(prev => [...prev, newBlock]);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -594,7 +614,9 @@ const App: React.FC = () => {
       <main className={`mx-auto relative z-10 transition-all duration-300 flex flex-col ${
           mode === 'edit' 
             ? 'w-full md:max-w-7xl h-[100dvh] pt-28 pb-4 px-4 md:px-8 overflow-hidden' 
-            : 'max-w-3xl min-h-screen pt-32 pb-24 px-6 md:px-12'
+            : mode === 'shuffle' 
+                ? 'w-full md:max-w-7xl h-[100dvh] pt-28 pb-4 px-4 md:px-8 overflow-hidden'
+                : 'max-w-3xl min-h-screen pt-32 pb-24 px-6 md:px-12'
       }`}>
         
         {mode === 'braindump' ? (
@@ -635,7 +657,6 @@ const App: React.FC = () => {
            />
         ) : mode === 'edit' ? (
            // -- SPLIT SCREEN EDIT MODE --
-           // Use flex-1 min-h-0 to ensure children scroll properly within the fixed parent height
            <div className="grid grid-cols-2 gap-4 md:gap-8 flex-1 min-h-0">
                
                {/* LEFT PANE (LIVE / EDITABLE) */}
@@ -694,23 +715,42 @@ const App: React.FC = () => {
                </div>
            </div>
         ) : mode === 'shuffle' ? (
-           <Reorder.Group axis="y" values={blocks} onReorder={handleShuffleReorder} className="flex flex-col gap-4">
-              {blocks.map((block) => (
-                <EditorBlock
-                    key={block.id}
-                    block={block}
-                    isActive={false}
-                    mode={mode}
-                    onChange={handleBlockChange}
-                    onPaste={handleBlockPaste}
-                    onFocus={() => {}}
-                    onAnalyze={() => {}}
-                    typography={typography}
-                    onShuffleSelect={handleShuffleSelect}
-                    onShuffleContextMenu={handleShuffleContextMenu}
-                />
-              ))}
-           </Reorder.Group>
+           <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr] gap-4 md:gap-8">
+               {/* SIDEBAR SOURCE */}
+               <div className="hidden md:block h-full min-h-0">
+                   <ShuffleSidebar onInsert={handleShuffleInsert} />
+               </div>
+
+               {/* MAIN SHUFFLEBOARD */}
+               <div 
+                  className="flex flex-col h-full min-h-0 overflow-y-auto pr-2"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleShuffleDrop}
+               >
+                   <Reorder.Group axis="y" values={blocks} onReorder={handleShuffleReorder} className="flex flex-col gap-4 pb-24">
+                      {blocks.map((block) => (
+                        <EditorBlock
+                            key={block.id}
+                            block={block}
+                            isActive={false}
+                            mode={mode}
+                            onChange={handleBlockChange}
+                            onPaste={handleBlockPaste}
+                            onFocus={() => {}}
+                            onAnalyze={() => {}}
+                            typography={typography}
+                            onShuffleSelect={handleShuffleSelect}
+                            onShuffleContextMenu={handleShuffleContextMenu}
+                        />
+                      ))}
+                      {blocks.length === 0 && (
+                          <div className="text-center py-20 text-zinc-400 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl">
+                              Drag items here from the left sidebar or type in Write mode.
+                          </div>
+                      )}
+                   </Reorder.Group>
+               </div>
+           </div>
         ) : (
           // -- STANDARD WRITE MODE --
           <>
