@@ -405,14 +405,10 @@ const App: React.FC = () => {
 
            // If it's a partial replacement (synonym/grammar)
            // We try to replace the *original selected text* within the block
-           // Note: This might fail if the user edited the live block since selection.
-           // A more robust app would track indices, but string replace is MVP.
            if (suggestion?.originalText && b.content.includes(suggestion.originalText)) {
                return { ...b, content: b.content.replace(suggestion.originalText, text) };
            }
            
-           // Fallback: If original text not found (maybe edited), just append? Or replace whole?
-           // For safety, if we can't find the exact match, we don't corrupt the block.
            return b;
        }));
     } else {
@@ -639,8 +635,12 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Editor Area */}
-      {/* Dynamic styling for Edit Mode (Split Screen) */}
-      <main className={`mx-auto pt-32 pb-24 px-6 md:px-12 relative z-10 min-h-screen transition-all duration-300 flex flex-col ${mode === 'edit' ? 'max-w-7xl' : 'max-w-3xl'}`}>
+      {/* Dynamic styling for Edit Mode (Split Screen) - Use full viewport height and disable outer scroll */}
+      <main className={`mx-auto relative z-10 transition-all duration-300 flex flex-col ${
+          mode === 'edit' 
+            ? 'w-full md:max-w-7xl h-[100dvh] pt-28 pb-4 px-4 md:px-8 overflow-hidden' 
+            : 'max-w-3xl min-h-screen pt-32 pb-24 px-6 md:px-12'
+      }`}>
         
         {mode === 'braindump' ? (
            <BraindumpView 
@@ -680,18 +680,19 @@ const App: React.FC = () => {
            />
         ) : mode === 'edit' ? (
            // -- SPLIT SCREEN EDIT MODE --
-           <div className="grid grid-cols-2 gap-8 h-[calc(100vh-200px)]">
+           // Use flex-1 min-h-0 to ensure children scroll properly within the fixed parent height
+           <div className="grid grid-cols-2 gap-4 md:gap-8 flex-1 min-h-0">
                
                {/* LEFT PANE (LIVE / EDITABLE) */}
-               <div className="flex flex-col">
-                   <div className="mb-2 flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">
+               <div className="flex flex-col h-full min-h-0">
+                   <div className="flex-none mb-2 flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">
                        <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
                        Live Editor
                    </div>
                    <div 
                       ref={leftPaneRef}
                       onScroll={() => handleScrollSync('left')}
-                      className="flex-1 overflow-y-auto pr-4 border-r border-zinc-200 dark:border-zinc-800"
+                      className="flex-1 overflow-y-auto pl-4 pr-4 border-r border-zinc-200 dark:border-zinc-800"
                    >
                         {blocks.map((block) => (
                             <EditorBlock
@@ -711,8 +712,8 @@ const App: React.FC = () => {
                </div>
 
                {/* RIGHT PANE (ORIGINAL / SNAPSHOT) */}
-               <div className="flex flex-col">
-                   <div className="mb-2 flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest">
+               <div className="flex flex-col h-full min-h-0">
+                   <div className="flex-none mb-2 flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest">
                        <ArrowRightLeft size={12} />
                        Original
                    </div>

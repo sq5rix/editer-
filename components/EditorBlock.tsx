@@ -183,9 +183,6 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   }
   
   // --- WRITE / EDIT MODE RENDER ---
-  // In the new Edit Mode:
-  // Left pane uses mode='edit', readOnly=false (Editable Textarea)
-  // Right pane uses mode='edit', readOnly=true (Static Div)
   
   return (
     <motion.div
@@ -195,29 +192,33 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
       className={`relative group transition-all duration-500 ease-in-out my-4 pl-4 md:pl-0 ${
         isActive && mode === 'write' && !readOnly
           ? 'translate-x-0' 
-          : mode === 'edit' && !readOnly ? 'hover:bg-zinc-50 dark:hover:bg-zinc-900/30 rounded-lg -ml-4 pl-4 pr-2 py-2' : 'hover:opacity-100'
+          : mode === 'edit' && !readOnly 
+            // Edit mode logic: Indent via padding/negative margin for "gutter" effect, 
+            // but use persistent active background if selected
+            ? `${isActive ? 'bg-zinc-50 dark:bg-zinc-900/30' : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/30'} rounded-lg -ml-4 pl-4 pr-2 py-2` 
+            : 'hover:opacity-100'
       }`}
       style={{ 
         opacity: (isActive || mode === 'edit') ? 1 : 0.8 
       }}
       onClick={handleClick}
     >
-       {/* Active Block Indicator / Margin Actions - ONLY IN EDIT MODE LIVE PANE */}
+       {/* Active Block Indicator / Actions - ONLY IN EDIT MODE LIVE PANE */}
        {!readOnly && mode === 'edit' && (
-           <div className={`absolute -left-12 top-0 h-full flex flex-col justify-center items-end gap-2 pr-2 transition-opacity duration-300 opacity-100 pointer-events-auto`}>
+           <div className={`absolute right-0 -top-7 flex flex-row justify-end items-center gap-2 transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} pointer-events-auto z-20`}>
               <button 
                 onClick={(e) => { e.stopPropagation(); onAnalyze(block.id, 'sensory'); }}
-                className="p-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30 dark:hover:text-amber-500 transition-colors shadow-sm ui-no-select touch-manipulation"
+                className="p-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30 dark:hover:text-amber-500 transition-colors shadow-sm ui-no-select touch-manipulation border border-zinc-200 dark:border-zinc-700"
                 title="Sensorize"
               >
-                <Eye size={16} />
+                <Eye size={14} />
               </button>
               <button 
                 onClick={(e) => { e.stopPropagation(); onAnalyze(block.id, 'show-dont-tell'); }}
-                className="p-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30 dark:hover:text-amber-500 transition-colors shadow-sm ui-no-select touch-manipulation"
+                className="p-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30 dark:hover:text-amber-500 transition-colors shadow-sm ui-no-select touch-manipulation border border-zinc-200 dark:border-zinc-700"
                 title="Show, Don't Tell"
               >
-                <BookOpen size={16} />
+                <BookOpen size={14} />
               </button>
            </div>
        )}

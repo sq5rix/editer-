@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Feather, Loader2, RefreshCcw, ThumbsUp, ThumbsDown, Zap, BookOpen, Activity } from 'lucide-react';
 import { StyleAnalysis, TypographySettings } from '../types';
@@ -13,6 +13,32 @@ const StyleAnalysisView: React.FC<StyleAnalysisViewProps> = ({ text, typography 
   const [analysis, setAnalysis] = useState<StyleAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastAnalyzedText, setLastAnalyzedText] = useState("");
+
+  // Load from LocalStorage
+  useEffect(() => {
+    const savedAnalysis = localStorage.getItem('inkflow_style_analysis');
+    const savedText = localStorage.getItem('inkflow_last_analyzed_text');
+    if (savedAnalysis) {
+      try {
+        setAnalysis(JSON.parse(savedAnalysis));
+      } catch (e) {
+        console.error("Failed to parse saved style analysis", e);
+      }
+    }
+    if (savedText) {
+      setLastAnalyzedText(savedText);
+    }
+  }, []);
+
+  // Save to LocalStorage
+  useEffect(() => {
+    if (analysis) {
+        localStorage.setItem('inkflow_style_analysis', JSON.stringify(analysis));
+    }
+    if (lastAnalyzedText) {
+        localStorage.setItem('inkflow_last_analyzed_text', lastAnalyzedText);
+    }
+  }, [analysis, lastAnalyzedText]);
 
   const handleAnalyze = async () => {
     if (!text.trim()) return;
