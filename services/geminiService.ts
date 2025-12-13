@@ -315,3 +315,92 @@ export const analyzeStyle = async (text: string): Promise<StyleAnalysis> => {
         throw new Error("Failed to analyze style.");
     }
 };
+
+// -- BOOK METADATA GENERATORS --
+
+export const generateSubtitles = async (title: string, manuscript: string): Promise<string[]> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: MODEL_TEXT,
+            contents: `Generate 5 compelling, market-ready subtitles for a book titled "${title}".
+            
+            MANUSCRIPT EXCERPT:
+            "${manuscript.substring(0, 5000)}"
+            
+            Return ONLY a JSON array of strings.`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING }
+                }
+            }
+        });
+        return JSON.parse(cleanJson(response.text));
+    } catch (error) {
+        console.error("Subtitle Gen Error:", error);
+        return [];
+    }
+};
+
+export const generateBlurb = async (title: string, manuscript: string): Promise<string> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: MODEL_TEXT,
+            contents: `Write a compelling, professional book blurb (back cover copy) for a book titled "${title}".
+            
+            MANUSCRIPT CONTEXT:
+            "${manuscript.substring(0, 8000)}"
+            
+            The blurb should engage the reader, hint at the core conflict or value, and end with a hook. Return Markdown text.`,
+        });
+        return response.text || "";
+    } catch (error) {
+        console.error("Blurb Gen Error:", error);
+        return "";
+    }
+};
+
+export const generateCopyright = async (title: string, author: string): Promise<string> => {
+    try {
+        const year = new Date().getFullYear();
+        const response = await ai.models.generateContent({
+            model: MODEL_FAST,
+            contents: `Generate a standard copyright page text for:
+            Title: "${title}"
+            Author: "${author}"
+            Year: ${year}
+            
+            Include standard disclaimers for fiction or non-fiction (infer from title). Return plain text with proper formatting.`,
+        });
+        return response.text || "";
+    } catch (error) {
+        console.error("Copyright Gen Error:", error);
+        return "";
+    }
+};
+
+export const generateKDPTags = async (title: string, manuscript: string): Promise<string[]> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: MODEL_FAST,
+            contents: `Generate 7 optimized Amazon KDP keywords/phrases for a book titled "${title}".
+            
+            CONTEXT:
+            "${manuscript.substring(0, 3000)}"
+            
+            Focus on search intent and genre specifics. Return ONLY a JSON array of 7 strings.`,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING }
+                }
+            }
+        });
+        return JSON.parse(cleanJson(response.text));
+    } catch (error) {
+        console.error("KDP Tags Gen Error:", error);
+        return [];
+    }
+};

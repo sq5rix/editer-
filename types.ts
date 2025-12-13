@@ -63,9 +63,18 @@ export interface StyleAnalysis {
   summary: string;
 }
 
+export interface BookMetadata {
+  title: string;
+  subtitle: string;
+  author: string;
+  blurb: string;
+  copyright: string;
+  kdpTags: string[];
+}
+
 export type Theme = 'light' | 'dark' | 'system';
 
-export type Mode = 'braindump' | 'research' | 'write' | 'edit' | 'shuffle' | 'characters' | 'analysis';
+export type Mode = 'metadata' | 'braindump' | 'research' | 'write' | 'edit' | 'shuffle' | 'characters' | 'analysis';
 
 export interface AIState {
   isLoading: boolean;

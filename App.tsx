@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather } from 'lucide-react';
+import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather, Book } from 'lucide-react';
 import { motion, Reorder } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -15,6 +15,7 @@ import ResearchView from './components/ResearchView';
 import BraindumpView from './components/BraindumpView';
 import CharactersView from './components/CharactersView';
 import StyleAnalysisView from './components/StyleAnalysisView';
+import MetadataView from './components/MetadataView';
 
 const App: React.FC = () => {
   // -- State --
@@ -31,8 +32,8 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   
-  // Research & Braindump State
-  const [auxContent, setAuxContent] = useState(""); // Used for global copy in Research/Braindump
+  // Research & Braindump & Metadata State
+  const [auxContent, setAuxContent] = useState(""); // Used for global copy in Research/Braindump/Meta
   const [globalCopySuccess, setGlobalCopySuccess] = useState(false);
   
   // Undo/Redo History
@@ -242,7 +243,7 @@ const App: React.FC = () => {
   };
 
   const handleGlobalCopy = () => {
-    const textToCopy = (mode === 'research' || mode === 'braindump' || mode === 'characters')
+    const textToCopy = (mode === 'research' || mode === 'braindump' || mode === 'characters' || mode === 'metadata')
         ? auxContent 
         : blocks.map(b => b.content).join('\n\n');
     
@@ -392,6 +393,16 @@ const App: React.FC = () => {
             {/* Mode Switcher */}
             <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 shadow-inner border border-zinc-200 dark:border-zinc-700">
                 <button 
+                    onClick={() => { setMode('metadata'); setSelectionRect(null); }}
+                    className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
+                        mode === 'metadata' 
+                        ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+                        : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+                    }`}
+                >
+                    <Book size={14} /> <span className="hidden sm:inline">Meta</span>
+                </button>
+                <button 
                     onClick={() => { setMode('braindump'); setSelectionRect(null); }}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
                         mode === 'braindump' 
@@ -470,7 +481,7 @@ const App: React.FC = () => {
         </div>
 
         <div className="pointer-events-auto flex gap-2 sm:gap-3 items-center">
-             {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && (
+             {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && mode !== 'metadata' && (
                <>
                  <button 
                     onClick={handleUndo}
@@ -511,7 +522,7 @@ const App: React.FC = () => {
                 {globalCopySuccess ? <Check size={18} /> : <Copy size={18} />}
              </button>
 
-             {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && (
+             {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && mode !== 'metadata' && (
                <button 
                   onClick={handleClearText}
                   className="p-2 rounded-full text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all"
@@ -558,6 +569,13 @@ const App: React.FC = () => {
               onCopy={(text) => {
                  navigator.clipboard.writeText(text);
               }}
+              onActiveContentUpdate={setAuxContent}
+           />
+        ) : mode === 'metadata' ? (
+           <MetadataView 
+              typography={typography}
+              onCopy={(text) => navigator.clipboard.writeText(text)}
+              manuscriptText={blocks.map(b => b.content).join('\n')}
               onActiveContentUpdate={setAuxContent}
            />
         ) : mode === 'analysis' ? (
