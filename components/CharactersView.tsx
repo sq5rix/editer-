@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Plus, Trash2, Copy, Sparkles, Send, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
-import { Character, TypographySettings, CharacterMessage } from '../types';
+import { Character, TypographySettings, CharacterMessage, User as UserType } from '../types';
 import * as GeminiService from '../services/geminiService';
+import * as FirebaseService from '../services/firebase';
 import { v4 as uuidv4 } from 'uuid';
 import TextareaAutosize from 'react-textarea-autosize';
 
@@ -10,30 +11,42 @@ interface CharactersViewProps {
   onCopy: (text: string) => void;
   typography: TypographySettings;
   onActiveContentUpdate?: (text: string) => void;
+  user: (UserType & { uid?: string }) | null;
 }
 
-const CharactersView: React.FC<CharactersViewProps> = ({ onCopy, typography, onActiveContentUpdate }) => {
+const CharactersView: React.FC<CharactersViewProps> = ({ onCopy, typography, onActiveContentUpdate, user }) => {
   const [input, setInput] = useState("");
   const [characters, setCharacters] = useState<Character[]>([]);
   const [loading, setLoading] = useState(false);
-  const [generatingId, setGeneratingId] = useState<string | null>(null); // For individual chat loaders
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
 
-  // Load from LocalStorage
+  // Load Data
   useEffect(() => {
-    const saved = localStorage.getItem('inkflow_characters');
-    if (saved) {
-      try {
-        setCharacters(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse saved characters", e);
-      }
+    if (user?.uid) {
+        FirebaseService.loadData(user.uid, 'characters', 'main').then(data => {
+            if (data && data.characters) {
+                setCharacters(data.characters);
+            } else {
+                const saved = localStorage.getItem('inkflow_characters');
+                if (saved) setCharacters(JSON.parse(saved));
+            }
+        });
+    } else {
+        const saved = localStorage.getItem('inkflow_characters');
+        if (saved) setCharacters(JSON.parse(saved));
     }
-  }, []);
+  }, [user]);
 
-  // Save to LocalStorage
+  // Save Data
   useEffect(() => {
     localStorage.setItem('inkflow_characters', JSON.stringify(characters));
-  }, [characters]);
+    if (user?.uid) {
+        const timer = setTimeout(() => {
+            FirebaseService.saveData(user.uid!, 'characters', 'main', { characters });
+        }, 2000);
+        return () => clearTimeout(timer);
+    }
+  }, [characters, user]);
 
   // Broadcast for global copy
   useEffect(() => {

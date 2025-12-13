@@ -1,37 +1,52 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, Trash2, Copy, Brain, Calendar } from 'lucide-react';
-import { BraindumpItem, TypographySettings } from '../types';
+import { BraindumpItem, TypographySettings, User } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import TextareaAutosize from 'react-textarea-autosize';
+import * as FirebaseService from '../services/firebase';
 
 interface BraindumpViewProps {
   onCopy: (text: string) => void;
   typography: TypographySettings;
   onActiveContentUpdate?: (text: string) => void;
+  user: (User & { uid?: string }) | null;
 }
 
-const BraindumpView: React.FC<BraindumpViewProps> = ({ onCopy, typography, onActiveContentUpdate }) => {
+const BraindumpView: React.FC<BraindumpViewProps> = ({ onCopy, typography, onActiveContentUpdate, user }) => {
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<BraindumpItem[]>([]);
-  const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Load from LocalStorage
+  // Load Initial Data (Cloud > Local)
   useEffect(() => {
-    const saved = localStorage.getItem('inkflow_braindumps');
-    if (saved) {
-      try {
-        setItems(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse saved braindumps", e);
-      }
+    if (user?.uid) {
+        // Attempt cloud load
+        FirebaseService.loadData(user.uid, 'braindump', 'main').then(data => {
+            if (data && data.items) {
+                setItems(data.items);
+            } else {
+                // Fallback to local if cloud empty
+                const saved = localStorage.getItem('inkflow_braindumps');
+                if (saved) setItems(JSON.parse(saved));
+            }
+        });
+    } else {
+        const saved = localStorage.getItem('inkflow_braindumps');
+        if (saved) setItems(JSON.parse(saved));
     }
-  }, []);
+  }, [user]);
 
-  // Save to LocalStorage
+  // Save Data (Cloud + Local)
   useEffect(() => {
     localStorage.setItem('inkflow_braindumps', JSON.stringify(items));
-  }, [items]);
+    
+    if (user?.uid) {
+        const timer = setTimeout(() => {
+            FirebaseService.saveData(user.uid!, 'braindump', 'main', { items });
+        }, 2000);
+        return () => clearTimeout(timer);
+    }
+  }, [items, user]);
 
   // Fuzzy Search Logic
   const filteredItems = useMemo(() => {
@@ -42,7 +57,6 @@ const BraindumpView: React.FC<BraindumpViewProps> = ({ onCopy, typography, onAct
 
     return items.filter(item => {
         const content = item.content.toLowerCase();
-        // Check if ALL terms are present (more precise than OR)
         return terms.every(term => content.includes(term));
     });
   }, [items, query]);
@@ -65,8 +79,8 @@ const BraindumpView: React.FC<BraindumpViewProps> = ({ onCopy, typography, onAct
       timestamp: Date.now()
     };
 
-    setItems(prev => [newItem, ...prev]); // Add to top
-    setQuery(""); // Clear search bar to show full list (or keep filtering? Clearing feels better for "Capture")
+    setItems(prev => [newItem, ...prev]); 
+    setQuery(""); 
   };
 
   const handleDelete = (id: string) => {

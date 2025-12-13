@@ -15,7 +15,8 @@
     "react-dom": "^19.2.1",
     "uuid": "^13.0.0",
     "framer-motion": "^12.23.25",
-    "react-textarea-autosize": "^8.5.9"
+    "react-textarea-autosize": "^8.5.9",
+    "firebase": "^12.6.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

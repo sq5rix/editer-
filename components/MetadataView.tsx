@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import TextareaAutosize from 'react-textarea-autosize';
-import { Book, Sparkles, Copy, Loader2, Save, Tag } from 'lucide-react';
-import { BookMetadata, TypographySettings } from '../types';
+import { Book, Sparkles, Copy, Loader2, Save, Tag, X as XIcon } from 'lucide-react';
+import { BookMetadata, TypographySettings, User } from '../types';
 import * as GeminiService from '../services/geminiService';
+import * as FirebaseService from '../services/firebase';
 
 interface MetadataViewProps {
   onCopy: (text: string) => void;
   typography: TypographySettings;
   manuscriptText: string;
   onActiveContentUpdate?: (text: string) => void;
+  user: (User & { uid?: string }) | null;
 }
 
-const MetadataView: React.FC<MetadataViewProps> = ({ onCopy, typography, manuscriptText, onActiveContentUpdate }) => {
+const MetadataView: React.FC<MetadataViewProps> = ({ onCopy, typography, manuscriptText, onActiveContentUpdate, user }) => {
   const [data, setData] = useState<BookMetadata>({
     title: "",
     subtitle: "",
@@ -22,23 +24,36 @@ const MetadataView: React.FC<MetadataViewProps> = ({ onCopy, typography, manuscr
     kdpTags: []
   });
   
-  const [loading, setLoading] = useState<string | null>(null); // tracks which field is loading
+  const [loading, setLoading] = useState<string | null>(null); 
   const [subtitleSuggestions, setSubtitleSuggestions] = useState<string[]>([]);
 
-  // Load/Save Logic
+  // Load Data
   useEffect(() => {
-    const saved = localStorage.getItem('inkflow_metadata');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setData(prev => ({ ...prev, ...parsed }));
-      } catch (e) {}
+    if (user?.uid) {
+        FirebaseService.loadData(user.uid, 'metadata', 'main').then(doc => {
+            if (doc && doc.data) {
+                setData(prev => ({ ...prev, ...doc.data }));
+            } else {
+                const saved = localStorage.getItem('inkflow_metadata');
+                if (saved) setData(prev => ({ ...prev, ...JSON.parse(saved) }));
+            }
+        });
+    } else {
+        const saved = localStorage.getItem('inkflow_metadata');
+        if (saved) setData(prev => ({ ...prev, ...JSON.parse(saved) }));
     }
-  }, []);
+  }, [user]);
 
+  // Save Data
   useEffect(() => {
     localStorage.setItem('inkflow_metadata', JSON.stringify(data));
-  }, [data]);
+    if (user?.uid) {
+        const timer = setTimeout(() => {
+            FirebaseService.saveData(user.uid!, 'metadata', 'main', { data });
+        }, 2000);
+        return () => clearTimeout(timer);
+    }
+  }, [data, user]);
 
   // Broadcast content
   useEffect(() => {
@@ -275,22 +290,5 @@ const MetadataView: React.FC<MetadataViewProps> = ({ onCopy, typography, manuscr
     </div>
   );
 };
-
-// Simple icon component for local use
-const XIcon = ({ size }: { size: number }) => (
-    <svg 
-      width={size} 
-      height={size} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    >
-      <line x1="18" y1="6" x2="6" y2="18"></line>
-      <line x1="6" y1="6" x2="18" y2="18"></line>
-    </svg>
-);
 
 export default MetadataView;

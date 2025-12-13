@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ArrowRight, ExternalLink, ChevronLeft, ChevronRight, Plus, Loader2, Copy, MessageSquarePlus, Trash2, Check } from 'lucide-react';
-import { ResearchThread, ResearchInteraction, TypographySettings } from '../types';
+import { ResearchThread, ResearchInteraction, TypographySettings, User } from '../types';
 import * as GeminiService from '../services/geminiService';
+import * as FirebaseService from '../services/firebase';
 import { v4 as uuidv4 } from 'uuid';
 
 interface ResearchViewProps {
   onCopy: (text: string) => void;
   typography: TypographySettings;
   onActiveContentUpdate?: (text: string) => void;
+  user: (User & { uid?: string }) | null;
 }
 
-const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography, onActiveContentUpdate }) => {
+const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography, onActiveContentUpdate, user }) => {
   const [query, setQuery] = useState("");
   const [followUpQuery, setFollowUpQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,22 +22,33 @@ const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography, onActiv
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const scrollEndRef = useRef<HTMLDivElement>(null);
 
-  // Load from LocalStorage on Mount
+  // Load Data
   useEffect(() => {
-    const saved = localStorage.getItem('inkflow_research_threads');
-    if (saved) {
-      try {
-        setThreads(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse saved threads", e);
-      }
+    if (user?.uid) {
+        FirebaseService.loadData(user.uid, 'research', 'main').then(data => {
+            if (data && data.threads) {
+                setThreads(data.threads);
+            } else {
+                const saved = localStorage.getItem('inkflow_research_threads');
+                if (saved) setThreads(JSON.parse(saved));
+            }
+        });
+    } else {
+        const saved = localStorage.getItem('inkflow_research_threads');
+        if (saved) setThreads(JSON.parse(saved));
     }
-  }, []);
+  }, [user]);
 
-  // Save to LocalStorage on Change
+  // Save Data
   useEffect(() => {
     localStorage.setItem('inkflow_research_threads', JSON.stringify(threads));
-  }, [threads]);
+    if (user?.uid) {
+        const timer = setTimeout(() => {
+            FirebaseService.saveData(user.uid!, 'research', 'main', { threads });
+        }, 2000);
+        return () => clearTimeout(timer);
+    }
+  }, [threads, user]);
 
   // Scroll to bottom when new interaction is added
   useEffect(() => {

@@ -1,36 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Feather, Loader2, RefreshCcw, ThumbsUp, ThumbsDown, Zap, BookOpen, Activity } from 'lucide-react';
-import { StyleAnalysis, TypographySettings } from '../types';
+import { StyleAnalysis, TypographySettings, User } from '../types';
 import * as GeminiService from '../services/geminiService';
+import * as FirebaseService from '../services/firebase';
 
 interface StyleAnalysisViewProps {
   text: string;
   typography: TypographySettings;
+  user: (User & { uid?: string }) | null;
 }
 
-const StyleAnalysisView: React.FC<StyleAnalysisViewProps> = ({ text, typography }) => {
+const StyleAnalysisView: React.FC<StyleAnalysisViewProps> = ({ text, typography, user }) => {
   const [analysis, setAnalysis] = useState<StyleAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastAnalyzedText, setLastAnalyzedText] = useState("");
 
-  // Load from LocalStorage
+  // Load Data
   useEffect(() => {
-    const savedAnalysis = localStorage.getItem('inkflow_style_analysis');
-    const savedText = localStorage.getItem('inkflow_last_analyzed_text');
-    if (savedAnalysis) {
-      try {
-        setAnalysis(JSON.parse(savedAnalysis));
-      } catch (e) {
-        console.error("Failed to parse saved style analysis", e);
-      }
+    if (user?.uid) {
+        FirebaseService.loadData(user.uid, 'analysis', 'main').then(data => {
+            if (data && data.analysis) {
+                setAnalysis(data.analysis);
+                setLastAnalyzedText(data.lastAnalyzedText || "");
+            } else {
+                const savedAnalysis = localStorage.getItem('inkflow_style_analysis');
+                const savedText = localStorage.getItem('inkflow_last_analyzed_text');
+                if (savedAnalysis) setAnalysis(JSON.parse(savedAnalysis));
+                if (savedText) setLastAnalyzedText(savedText);
+            }
+        });
+    } else {
+        const savedAnalysis = localStorage.getItem('inkflow_style_analysis');
+        const savedText = localStorage.getItem('inkflow_last_analyzed_text');
+        if (savedAnalysis) setAnalysis(JSON.parse(savedAnalysis));
+        if (savedText) setLastAnalyzedText(savedText);
     }
-    if (savedText) {
-      setLastAnalyzedText(savedText);
-    }
-  }, []);
+  }, [user]);
 
-  // Save to LocalStorage
+  // Save Data
   useEffect(() => {
     if (analysis) {
         localStorage.setItem('inkflow_style_analysis', JSON.stringify(analysis));
@@ -38,7 +46,14 @@ const StyleAnalysisView: React.FC<StyleAnalysisViewProps> = ({ text, typography 
     if (lastAnalyzedText) {
         localStorage.setItem('inkflow_last_analyzed_text', lastAnalyzedText);
     }
-  }, [analysis, lastAnalyzedText]);
+
+    if (user?.uid && analysis) {
+        const timer = setTimeout(() => {
+            FirebaseService.saveData(user.uid!, 'analysis', 'main', { analysis, lastAnalyzedText });
+        }, 2000);
+        return () => clearTimeout(timer);
+    }
+  }, [analysis, lastAnalyzedText, user]);
 
   const handleAnalyze = async () => {
     if (!text.trim()) return;
