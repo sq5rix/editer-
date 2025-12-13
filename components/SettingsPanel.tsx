@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Moon, Sun, Monitor, Type, Minus, Plus, Settings, Eye } from 'lucide-react';
-import { Theme, TypographySettings } from '../types';
+import { X, Moon, Sun, Monitor, Type, Minus, Plus, Settings, Eye, LogOut, User as UserIcon } from 'lucide-react';
+import { Theme, TypographySettings, User } from '../types';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -10,11 +10,29 @@ interface SettingsPanelProps {
   onThemeChange: (theme: Theme) => void;
   typography: TypographySettings;
   onTypographyChange: (settings: TypographySettings) => void;
+  user: User | null;
+  onLogout: () => void;
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({
-  isOpen, onClose, theme, onThemeChange, typography, onTypographyChange
+  isOpen, onClose, theme, onThemeChange, typography, onTypographyChange, user, onLogout
 }) => {
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Render Google Button when panel is open, user is null, and window.google exists
+    if (isOpen && !user && window.google && googleBtnRef.current) {
+      try {
+        window.google.accounts.id.renderButton(
+          googleBtnRef.current,
+          { theme: theme === 'dark' ? 'filled_black' : 'outline', size: 'large', width: '100%' }
+        );
+      } catch (e) {
+        console.error("Google Sign-in render error", e);
+      }
+    }
+  }, [isOpen, user, theme]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -51,6 +69,42 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
             {/* Scrollable Content */}
             <div className="flex-1 p-6 space-y-8 overflow-y-auto">
+
+              {/* Account Section */}
+              <div className="space-y-3">
+                 <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Account</label>
+                 <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-zinc-200 dark:border-zinc-700">
+                    {user ? (
+                      <div className="flex items-center justify-between">
+                         <div className="flex items-center gap-3">
+                             {user.picture ? (
+                               <img src={user.picture} alt={user.name} className="w-10 h-10 rounded-full border border-zinc-200 dark:border-zinc-600" />
+                             ) : (
+                               <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                                  <UserIcon size={20} />
+                               </div>
+                             )}
+                             <div>
+                                <div className="font-bold text-sm text-zinc-800 dark:text-zinc-100">{user.name}</div>
+                                <div className="text-xs text-zinc-500 dark:text-zinc-400">{user.email}</div>
+                             </div>
+                         </div>
+                         <button 
+                           onClick={onLogout}
+                           className="p-2 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors"
+                           title="Sign out"
+                         >
+                            <LogOut size={18} />
+                         </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-3">
+                         <div className="text-sm text-zinc-500 dark:text-zinc-400">Sign in to sync your progress</div>
+                         <div ref={googleBtnRef} className="w-full flex justify-center"></div>
+                      </div>
+                    )}
+                 </div>
+              </div>
               
               {/* Theme Section */}
               <div className="space-y-3">

@@ -3,7 +3,7 @@ import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, L
 import { motion, Reorder } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
-import { Block, Suggestion, Theme, TypographySettings, Mode } from './types';
+import { Block, Suggestion, Theme, TypographySettings, Mode, User as UserType } from './types';
 import { parseTextToBlocks, countWords } from './utils';
 import * as GeminiService from './services/geminiService';
 
@@ -17,6 +17,13 @@ import CharactersView from './components/CharactersView';
 import StyleAnalysisView from './components/StyleAnalysisView';
 import MetadataView from './components/MetadataView';
 import ShuffleSidebar from './components/ShuffleSidebar';
+
+// Add declaration for Google global
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 
 const App: React.FC = () => {
   // -- State --
@@ -35,6 +42,9 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   
+  // Auth State
+  const [user, setUser] = useState<UserType | null>(null);
+
   // Research & Braindump & Metadata State
   const [auxContent, setAuxContent] = useState(""); // Used for global copy in Research/Braindump/Meta
   const [globalCopySuccess, setGlobalCopySuccess] = useState(false);
@@ -60,6 +70,78 @@ const App: React.FC = () => {
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // -- Auth Logic --
+  useEffect(() => {
+    // Check local storage for existing session
+    const savedUser = localStorage.getItem('inkflow_user');
+    if (savedUser) {
+        try {
+            setUser(JSON.parse(savedUser));
+        } catch(e) {}
+    }
+
+    // Initialize Google Identity if script is ready
+    if (window.google) {
+        initializeGoogleAuth();
+    } else {
+        const interval = setInterval(() => {
+            if (window.google) {
+                initializeGoogleAuth();
+                clearInterval(interval);
+            }
+        }, 500);
+        return () => clearInterval(interval);
+    }
+  }, []);
+
+  const initializeGoogleAuth = () => {
+      // NOTE: Replace with your actual Google Client ID
+      const clientId = process.env.GOOGLE_CLIENT_ID || "YOUR_CLIENT_ID_HERE.apps.googleusercontent.com";
+      
+      try {
+          window.google.accounts.id.initialize({
+              client_id: clientId,
+              callback: handleCredentialResponse
+          });
+      } catch (e) {
+          console.error("Google Auth Init Failed", e);
+      }
+  };
+
+  const handleCredentialResponse = (response: any) => {
+      try {
+          // Decode JWT payload (Part 2 of the token)
+          const base64Url = response.credential.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+              return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          }).join(''));
+          
+          const payload = JSON.parse(jsonPayload);
+          
+          const newUser: UserType = {
+              name: payload.name,
+              email: payload.email,
+              picture: payload.picture
+          };
+          
+          setUser(newUser);
+          localStorage.setItem('inkflow_user', JSON.stringify(newUser));
+          setSettingsOpen(true); // Open settings to show logged in state
+      } catch (e) {
+          console.error("Failed to decode user credential", e);
+      }
+  };
+
+  const handleLogout = () => {
+      setUser(null);
+      localStorage.removeItem('inkflow_user');
+      // Revoke via Google ID if needed, but simple local clear is often enough for client-only apps
+      if (window.google) {
+          window.google.accounts.id.disableAutoSelect();
+      }
+  };
 
   // -- Theme Handling --
   useEffect(() => {
@@ -603,7 +685,15 @@ const App: React.FC = () => {
                 className="p-3 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-all touch-manipulation text-zinc-600 dark:text-zinc-400 hover:text-ink dark:hover:text-zinc-200"
                 title="Settings"
                 >
-                    <Settings size={20} />
+                    {user ? (
+                        user.picture ? (
+                           <img src={user.picture} alt="Profile" className="w-5 h-5 rounded-full" />
+                        ) : (
+                           <User size={20} className="text-indigo-500" />
+                        )
+                    ) : (
+                        <Settings size={20} />
+                    )}
                 </button>
             </div>
         </div>
@@ -816,6 +906,8 @@ const App: React.FC = () => {
         onThemeChange={setTheme}
         typography={typography}
         onTypographyChange={setTypography}
+        user={user}
+        onLogout={handleLogout}
       />
 
     </div>

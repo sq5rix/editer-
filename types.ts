@@ -72,6 +72,12 @@ export interface BookMetadata {
   kdpTags: string[];
 }
 
+export interface User {
+  name: string;
+  email: string;
+  picture: string;
+}
+
 export type Theme = 'light' | 'dark' | 'system';
 
 export type Mode = 'metadata' | 'braindump' | 'research' | 'write' | 'edit' | 'shuffle' | 'characters' | 'analysis';
