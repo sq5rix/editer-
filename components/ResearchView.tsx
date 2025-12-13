@@ -11,9 +11,10 @@ interface ResearchViewProps {
   typography: TypographySettings;
   onActiveContentUpdate?: (text: string) => void;
   user: (User & { uid?: string }) | null;
+  bookId: string;
 }
 
-const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography, onActiveContentUpdate, user }) => {
+const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography, onActiveContentUpdate, user, bookId }) => {
   const [query, setQuery] = useState("");
   const [followUpQuery, setFollowUpQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,31 +25,47 @@ const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography, onActiv
 
   // Load Data
   useEffect(() => {
-    if (user?.uid) {
-        FirebaseService.loadData(user.uid, 'research', 'main').then(data => {
+    // Reset
+    setThreads([]);
+
+    const loadData = async () => {
+        if (user?.uid) {
+            const data = await FirebaseService.loadData(user.uid, 'research', bookId);
             if (data && data.threads) {
                 setThreads(data.threads);
-            } else {
-                const saved = localStorage.getItem('inkflow_research_threads');
-                if (saved) setThreads(JSON.parse(saved));
+                return;
             }
-        });
-    } else {
-        const saved = localStorage.getItem('inkflow_research_threads');
+        }
+        
+        // Fallback
+        const localKey = `inkflow_research_threads_${bookId}`;
+        const saved = localStorage.getItem(localKey);
+        // Migration
+        if (!saved && bookId === 'default' && localStorage.getItem('inkflow_research_threads')) {
+            const legacy = localStorage.getItem('inkflow_research_threads');
+            if (legacy) {
+                setThreads(JSON.parse(legacy));
+                return;
+            }
+        }
+
         if (saved) setThreads(JSON.parse(saved));
-    }
-  }, [user]);
+    };
+    loadData();
+  }, [user, bookId]);
 
   // Save Data
   useEffect(() => {
-    localStorage.setItem('inkflow_research_threads', JSON.stringify(threads));
+    const localKey = `inkflow_research_threads_${bookId}`;
+    localStorage.setItem(localKey, JSON.stringify(threads));
+
     if (user?.uid) {
         const timer = setTimeout(() => {
-            FirebaseService.saveData(user.uid!, 'research', 'main', { threads });
+            FirebaseService.saveData(user.uid!, 'research', bookId, { threads });
         }, 2000);
         return () => clearTimeout(timer);
     }
-  }, [threads, user]);
+  }, [threads, user, bookId]);
 
   // Scroll to bottom when new interaction is added
   useEffect(() => {

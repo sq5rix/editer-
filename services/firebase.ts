@@ -26,7 +26,7 @@ try {
     auth = getAuth(app);
     db = getFirestore(app);
 } catch (e) {
-    console.warn("Firebase initialization failed. Cloud features will be disabled.", e);
+    console.log("🔥 Firebase Init Failed: Entering Offline/Dev Mode (Local Persistence Only).");
 }
 
 const provider = new GoogleAuthProvider();

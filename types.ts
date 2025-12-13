@@ -1,7 +1,15 @@
+
 export interface Block {
   id: string;
   type: 'h1' | 'p';
   content: string;
+}
+
+export interface BookEntry {
+  id: string;
+  title: string;
+  createdAt: number;
+  lastModified: number;
 }
 
 export interface Suggestion {

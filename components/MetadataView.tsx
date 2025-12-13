@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import TextareaAutosize from 'react-textarea-autosize';
-import { Book, Sparkles, Copy, Loader2, Save, Tag, X as XIcon } from 'lucide-react';
-import { BookMetadata, TypographySettings, User } from '../types';
+import { Book, Sparkles, Copy, Loader2, Save, Tag, X as XIcon, ChevronDown, Plus, Trash2, Edit2, Check } from 'lucide-react';
+import { BookMetadata, TypographySettings, User, BookEntry } from '../types';
 import * as GeminiService from '../services/geminiService';
 import * as FirebaseService from '../services/firebase';
 
@@ -12,9 +12,19 @@ interface MetadataViewProps {
   manuscriptText: string;
   onActiveContentUpdate?: (text: string) => void;
   user: (User & { uid?: string }) | null;
+  // Multiple Books Props
+  books: BookEntry[];
+  currentBookId: string;
+  onSwitchBook: (id: string) => void;
+  onCreateBook: () => void;
+  onDeleteBook: (id: string) => void;
+  onRenameBook: (id: string, title: string) => void;
 }
 
-const MetadataView: React.FC<MetadataViewProps> = ({ onCopy, typography, manuscriptText, onActiveContentUpdate, user }) => {
+const MetadataView: React.FC<MetadataViewProps> = ({ 
+    onCopy, typography, manuscriptText, onActiveContentUpdate, user,
+    books, currentBookId, onSwitchBook, onCreateBook, onDeleteBook, onRenameBook
+}) => {
   const [data, setData] = useState<BookMetadata>({
     title: "",
     subtitle: "",
@@ -26,34 +36,62 @@ const MetadataView: React.FC<MetadataViewProps> = ({ onCopy, typography, manuscr
   
   const [loading, setLoading] = useState<string | null>(null); 
   const [subtitleSuggestions, setSubtitleSuggestions] = useState<string[]>([]);
+  
+  // Selector State
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
-  // Load Data
+  // Load Data for CURRENT book
   useEffect(() => {
-    if (user?.uid) {
-        FirebaseService.loadData(user.uid, 'metadata', 'main').then(doc => {
+    // Reset state first to avoid flicker of old data
+    setData({ title: "", subtitle: "", author: "", blurb: "", copyright: "", kdpTags: [] });
+
+    const loadBookData = async () => {
+        if (user?.uid) {
+            const doc = await FirebaseService.loadData(user.uid, 'metadata', currentBookId);
             if (doc && doc.data) {
                 setData(prev => ({ ...prev, ...doc.data }));
-            } else {
-                const saved = localStorage.getItem('inkflow_metadata');
-                if (saved) setData(prev => ({ ...prev, ...JSON.parse(saved) }));
+                return;
             }
-        });
-    } else {
-        const saved = localStorage.getItem('inkflow_metadata');
+        }
+        
+        // Fallback or local
+        const saved = localStorage.getItem(`inkflow_metadata_${currentBookId}`);
+        // Migration check
+        if (!saved && currentBookId === 'default' && localStorage.getItem('inkflow_metadata')) {
+            const legacy = localStorage.getItem('inkflow_metadata');
+            if (legacy) {
+                 setData(prev => ({ ...prev, ...JSON.parse(legacy) }));
+                 return;
+            }
+        }
+
         if (saved) setData(prev => ({ ...prev, ...JSON.parse(saved) }));
-    }
-  }, [user]);
+    };
+    loadBookData();
+  }, [currentBookId, user]);
 
   // Save Data
   useEffect(() => {
-    localStorage.setItem('inkflow_metadata', JSON.stringify(data));
+    localStorage.setItem(`inkflow_metadata_${currentBookId}`, JSON.stringify(data));
     if (user?.uid) {
         const timer = setTimeout(() => {
-            FirebaseService.saveData(user.uid!, 'metadata', 'main', { data });
+            FirebaseService.saveData(user.uid!, 'metadata', currentBookId, { data });
         }, 2000);
         return () => clearTimeout(timer);
     }
-  }, [data, user]);
+  }, [data, user, currentBookId]);
+  
+  // Sync Title to Book List when changed in Metadata
+  useEffect(() => {
+      if (data.title && data.title !== books.find(b => b.id === currentBookId)?.title) {
+          const timer = setTimeout(() => {
+              onRenameBook(currentBookId, data.title);
+          }, 1000);
+          return () => clearTimeout(timer);
+      }
+  }, [data.title, currentBookId]);
 
   // Broadcast content
   useEffect(() => {
@@ -119,17 +157,88 @@ const MetadataView: React.FC<MetadataViewProps> = ({ onCopy, typography, manuscr
     }
   };
 
+  const currentBook = books.find(b => b.id === currentBookId);
+
   return (
     <div className="flex flex-col h-full w-full max-w-3xl mx-auto pt-6 px-6 pb-32">
         
-        <div className="text-center mb-10">
-            <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Book size={24} />
+        {/* Book Selector Header */}
+        <div className="relative z-30 mb-12">
+            <div className="flex flex-col items-center">
+                <button 
+                    onClick={() => setSelectorOpen(!selectorOpen)}
+                    className="flex items-center gap-3 px-6 py-3 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 border border-zinc-200 dark:border-zinc-700 rounded-full shadow-sm hover:shadow-md transition-all group"
+                >
+                    <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center">
+                        <Book size={16} />
+                    </div>
+                    <div className="flex flex-col items-start">
+                         <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest leading-none mb-1">Current Book</span>
+                         <span className="font-display font-bold text-lg text-ink dark:text-zinc-100 leading-none group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            {currentBook?.title || "Untitled Draft"}
+                         </span>
+                    </div>
+                    <ChevronDown size={16} className={`text-zinc-400 transition-transform ${selectorOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                <AnimatePresence>
+                    {selectorOpen && (
+                        <>
+                        <div className="fixed inset-0 z-20" onClick={() => setSelectorOpen(false)} />
+                        <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            className="absolute top-full mt-4 w-72 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-2xl shadow-xl z-30 overflow-hidden flex flex-col"
+                        >
+                            <div className="max-h-64 overflow-y-auto p-2 space-y-1">
+                                {books.map(book => (
+                                    <div 
+                                        key={book.id}
+                                        className={`group flex items-center justify-between p-3 rounded-xl cursor-pointer transition-colors ${book.id === currentBookId ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'}`}
+                                        onClick={() => {
+                                            onSwitchBook(book.id);
+                                            setSelectorOpen(false);
+                                        }}
+                                    >
+                                        <div className="flex items-center gap-3 overflow-hidden">
+                                            <div className={`flex-shrink-0 w-2 h-2 rounded-full ${book.id === currentBookId ? 'bg-indigo-500' : 'bg-zinc-300 dark:bg-zinc-600'}`} />
+                                            <div className="truncate font-medium text-sm text-zinc-700 dark:text-zinc-300">
+                                                {book.title || "Untitled"}
+                                            </div>
+                                        </div>
+                                        {books.length > 1 && (
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if(window.confirm(`Delete "${book.title}"? This cannot be undone.`)) {
+                                                        onDeleteBook(book.id);
+                                                    }
+                                                }}
+                                                className="opacity-0 group-hover:opacity-100 p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-all"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="p-2 border-t border-zinc-100 dark:border-zinc-800">
+                                <button 
+                                    onClick={() => {
+                                        onCreateBook();
+                                        setSelectorOpen(false);
+                                    }}
+                                    className="w-full flex items-center justify-center gap-2 p-2.5 bg-zinc-50 dark:bg-zinc-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-zinc-600 dark:text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-xl text-sm font-bold transition-colors"
+                                >
+                                    <Plus size={16} /> Create New Book
+                                </button>
+                            </div>
+                        </motion.div>
+                        </>
+                    )}
+                </AnimatePresence>
             </div>
-            <h2 className="font-display font-bold text-2xl text-ink dark:text-zinc-100">Book Metadata</h2>
-            <p className="text-sm text-zinc-500 max-w-lg mx-auto mt-2">
-                Prepare your manuscript for the world with AI-assisted titles, blurbs, and distribution data.
-            </p>
         </div>
 
         <div className="space-y-12">

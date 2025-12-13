@@ -3,7 +3,7 @@ import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, L
 import { motion, Reorder } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
-import { Block, Suggestion, Theme, TypographySettings, Mode, User as UserType } from './types';
+import { Block, Suggestion, Theme, TypographySettings, Mode, User as UserType, BookEntry } from './types';
 import { parseTextToBlocks, countWords } from './utils';
 import * as GeminiService from './services/geminiService';
 import * as FirebaseService from './services/firebase';
@@ -20,11 +20,96 @@ import MetadataView from './components/MetadataView';
 import ShuffleSidebar from './components/ShuffleSidebar';
 
 const App: React.FC = () => {
-  // -- State --
-  const [blocks, setBlocks] = useState<Block[]>([
-    { id: uuidv4(), type: 'p', content: '' }
-  ]);
-  const [originalSnapshot, setOriginalSnapshot] = useState<Block[]>([]); // For Edit Mode "Right Pane"
+  // -- Auth State --
+  const [user, setUser] = useState<(UserType & { uid?: string }) | null>(null);
+
+  // -- Book Management State --
+  const [books, setBooks] = useState<BookEntry[]>(() => {
+    try {
+        const saved = localStorage.getItem('inkflow_books_index');
+        if (saved) return JSON.parse(saved);
+        return [{ id: 'default', title: 'Untitled Draft', createdAt: Date.now(), lastModified: Date.now() }];
+    } catch {
+        return [{ id: 'default', title: 'Untitled Draft', createdAt: Date.now(), lastModified: Date.now() }];
+    }
+  });
+  
+  const [currentBookId, setCurrentBookId] = useState<string>(() => {
+     return localStorage.getItem('inkflow_active_book_id') || 'default';
+  });
+
+  // Ensure current book exists in list
+  useEffect(() => {
+     if (!books.find(b => b.id === currentBookId)) {
+         setCurrentBookId(books[0]?.id || 'default');
+     }
+     localStorage.setItem('inkflow_active_book_id', currentBookId);
+  }, [books, currentBookId]);
+
+  // Save Book Index
+  useEffect(() => {
+      localStorage.setItem('inkflow_books_index', JSON.stringify(books));
+      if (user?.uid) {
+          FirebaseService.saveData(user.uid, 'settings', 'books_index', { books });
+      }
+  }, [books, user]);
+
+  // -- Manuscript State (Specific to Current Book) --
+  const [blocks, setBlocks] = useState<Block[]>([{ id: uuidv4(), type: 'p', content: '' }]);
+  
+  // Load Manuscript when Book ID Changes
+  useEffect(() => {
+    const loadManuscript = async () => {
+        // 1. Try Cloud if logged in
+        if (user?.uid) {
+             const data = await FirebaseService.loadData(user.uid, 'manuscript', currentBookId);
+             if (data && data.blocks) {
+                 setBlocks(data.blocks);
+                 return;
+             }
+        }
+        
+        // 2. Fallback to Local
+        const localKey = `inkflow_manuscript_${currentBookId}`;
+        const saved = localStorage.getItem(localKey);
+        
+        // Migration check: if new book (default) but empty, and old legacy key exists, import it
+        if (!saved && currentBookId === 'default' && localStorage.getItem('inkflow_manuscript')) {
+             const legacy = localStorage.getItem('inkflow_manuscript');
+             if (legacy) {
+                 setBlocks(JSON.parse(legacy));
+                 return;
+             }
+        }
+
+        if (saved) {
+            setBlocks(JSON.parse(saved));
+        } else {
+            setBlocks([{ id: uuidv4(), type: 'p', content: '' }]);
+        }
+    };
+    loadManuscript();
+  }, [currentBookId, user]);
+
+  // Save Manuscript
+  useEffect(() => {
+      if (!currentBookId) return;
+      
+      const localKey = `inkflow_manuscript_${currentBookId}`;
+      localStorage.setItem(localKey, JSON.stringify(blocks));
+
+      if (user?.uid) {
+        const timer = setTimeout(() => {
+            FirebaseService.saveData(user.uid!, 'manuscript', currentBookId, { blocks });
+            // Update last modified of book
+            setBooks(prev => prev.map(b => b.id === currentBookId ? { ...b, lastModified: Date.now() } : b));
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
+  }, [blocks, user, currentBookId]);
+
+
+  const [originalSnapshot, setOriginalSnapshot] = useState<Block[]>([]); 
 
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [selectionRect, setSelectionRect] = useState<{ top: number; left: number } | null>(null);
@@ -36,9 +121,6 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   
-  // Auth State (Extended with UID for Firebase)
-  const [user, setUser] = useState<(UserType & { uid?: string }) | null>(null);
-
   // Research & Braindump & Metadata State
   const [auxContent, setAuxContent] = useState(""); 
   const [globalCopySuccess, setGlobalCopySuccess] = useState(false);
@@ -65,9 +147,8 @@ const App: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // -- Auth & Persistence Logic --
+  // -- Auth Logic --
   useEffect(() => {
-    // Subscribe to Firebase Auth State
     const unsubscribe = FirebaseService.subscribeToAuth((firebaseUser) => {
         if (firebaseUser) {
             setUser({
@@ -76,10 +157,10 @@ const App: React.FC = () => {
                 picture: firebaseUser.photoURL || '',
                 uid: firebaseUser.uid
             });
-            // Initial Load of Manuscript from Cloud
-            FirebaseService.loadData(firebaseUser.uid, 'manuscript', 'main').then(data => {
-                if (data && data.blocks) {
-                    setBlocks(data.blocks);
+            // Load Books Index
+            FirebaseService.loadData(firebaseUser.uid, 'settings', 'books_index').then(data => {
+                if (data && data.books) {
+                    setBooks(data.books);
                 }
             });
         } else {
@@ -89,16 +170,6 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // Save Blocks to Cloud (Debounced)
-  useEffect(() => {
-      if (!user?.uid) return;
-      
-      const timer = setTimeout(() => {
-          FirebaseService.saveData(user.uid!, 'manuscript', 'main', { blocks });
-      }, 2000);
-
-      return () => clearTimeout(timer);
-  }, [blocks, user]);
 
   const handleLogin = async () => {
       try {
@@ -113,6 +184,30 @@ const App: React.FC = () => {
       await FirebaseService.logout();
       setUser(null);
   };
+
+  // -- Book Management Handlers --
+  const handleCreateBook = () => {
+      const newBook: BookEntry = {
+          id: uuidv4(),
+          title: "Untitled Draft",
+          createdAt: Date.now(),
+          lastModified: Date.now()
+      };
+      setBooks(prev => [...prev, newBook]);
+      setCurrentBookId(newBook.id);
+  };
+
+  const handleDeleteBook = (id: string) => {
+      if (books.length <= 1) return; 
+      const newBooks = books.filter(b => b.id !== id);
+      setBooks(newBooks);
+      if (currentBookId === id) setCurrentBookId(newBooks[0].id);
+  };
+
+  const handleRenameBook = (id: string, newTitle: string) => {
+      setBooks(prev => prev.map(b => b.id === id ? { ...b, title: newTitle } : b));
+  };
+
 
   // -- Theme Handling --
   useEffect(() => {
@@ -345,6 +440,7 @@ const App: React.FC = () => {
   };
 
   const handleClearText = () => {
+    if (!window.confirm("Are you sure you want to clear the entire manuscript?")) return;
     saveHistory();
     const newId = uuidv4();
     setBlocks([{ id: newId, type: 'p', content: '' }]);
@@ -609,6 +705,7 @@ const App: React.FC = () => {
               onCopy={(text) => navigator.clipboard.writeText(text)}
               onActiveContentUpdate={setAuxContent}
               user={user}
+              bookId={currentBookId}
            />
         ) : mode === 'research' ? (
           <ResearchView 
@@ -616,6 +713,7 @@ const App: React.FC = () => {
              onCopy={(text) => navigator.clipboard.writeText(text)} 
              onActiveContentUpdate={setAuxContent}
              user={user}
+             bookId={currentBookId}
           />
         ) : mode === 'characters' ? (
            <CharactersView 
@@ -623,6 +721,7 @@ const App: React.FC = () => {
               onCopy={(text) => navigator.clipboard.writeText(text)}
               onActiveContentUpdate={setAuxContent}
               user={user}
+              bookId={currentBookId}
            />
         ) : mode === 'metadata' ? (
            <MetadataView 
@@ -631,12 +730,19 @@ const App: React.FC = () => {
               manuscriptText={blocks.map(b => b.content).join('\n')}
               onActiveContentUpdate={setAuxContent}
               user={user}
+              books={books}
+              currentBookId={currentBookId}
+              onSwitchBook={setCurrentBookId}
+              onCreateBook={handleCreateBook}
+              onDeleteBook={handleDeleteBook}
+              onRenameBook={handleRenameBook}
            />
         ) : mode === 'analysis' ? (
            <StyleAnalysisView 
               text={blocks.map(b => b.content).join('\n\n')}
               typography={typography}
               user={user}
+              bookId={currentBookId}
            />
         ) : mode === 'edit' ? (
            <div className="grid grid-cols-2 gap-4 md:gap-8 flex-1 min-h-0">

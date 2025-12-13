@@ -9,51 +9,68 @@ interface StyleAnalysisViewProps {
   text: string;
   typography: TypographySettings;
   user: (User & { uid?: string }) | null;
+  bookId: string;
 }
 
-const StyleAnalysisView: React.FC<StyleAnalysisViewProps> = ({ text, typography, user }) => {
+const StyleAnalysisView: React.FC<StyleAnalysisViewProps> = ({ text, typography, user, bookId }) => {
   const [analysis, setAnalysis] = useState<StyleAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [lastAnalyzedText, setLastAnalyzedText] = useState("");
 
   // Load Data
   useEffect(() => {
-    if (user?.uid) {
-        FirebaseService.loadData(user.uid, 'analysis', 'main').then(data => {
+    // Reset
+    setAnalysis(null);
+    setLastAnalyzedText("");
+
+    const loadData = async () => {
+        if (user?.uid) {
+            const data = await FirebaseService.loadData(user.uid, 'analysis', bookId);
             if (data && data.analysis) {
                 setAnalysis(data.analysis);
                 setLastAnalyzedText(data.lastAnalyzedText || "");
-            } else {
-                const savedAnalysis = localStorage.getItem('inkflow_style_analysis');
-                const savedText = localStorage.getItem('inkflow_last_analyzed_text');
-                if (savedAnalysis) setAnalysis(JSON.parse(savedAnalysis));
-                if (savedText) setLastAnalyzedText(savedText);
+                return;
             }
-        });
-    } else {
-        const savedAnalysis = localStorage.getItem('inkflow_style_analysis');
-        const savedText = localStorage.getItem('inkflow_last_analyzed_text');
+        }
+        
+        // Fallback
+        const localKeyAnalysis = `inkflow_style_analysis_${bookId}`;
+        const localKeyText = `inkflow_last_analyzed_text_${bookId}`;
+        
+        const savedAnalysis = localStorage.getItem(localKeyAnalysis);
+        const savedText = localStorage.getItem(localKeyText);
+
+        // Migration
+        if (!savedAnalysis && bookId === 'default') {
+             const legacyA = localStorage.getItem('inkflow_style_analysis');
+             const legacyT = localStorage.getItem('inkflow_last_analyzed_text');
+             if (legacyA) setAnalysis(JSON.parse(legacyA));
+             if (legacyT) setLastAnalyzedText(legacyT || "");
+             return;
+        }
+
         if (savedAnalysis) setAnalysis(JSON.parse(savedAnalysis));
         if (savedText) setLastAnalyzedText(savedText);
-    }
-  }, [user]);
+    };
+    loadData();
+  }, [user, bookId]);
 
   // Save Data
   useEffect(() => {
     if (analysis) {
-        localStorage.setItem('inkflow_style_analysis', JSON.stringify(analysis));
+        localStorage.setItem(`inkflow_style_analysis_${bookId}`, JSON.stringify(analysis));
     }
     if (lastAnalyzedText) {
-        localStorage.setItem('inkflow_last_analyzed_text', lastAnalyzedText);
+        localStorage.setItem(`inkflow_last_analyzed_text_${bookId}`, lastAnalyzedText);
     }
 
     if (user?.uid && analysis) {
         const timer = setTimeout(() => {
-            FirebaseService.saveData(user.uid!, 'analysis', 'main', { analysis, lastAnalyzedText });
+            FirebaseService.saveData(user.uid!, 'analysis', bookId, { analysis, lastAnalyzedText });
         }, 2000);
         return () => clearTimeout(timer);
     }
-  }, [analysis, lastAnalyzedText, user]);
+  }, [analysis, lastAnalyzedText, user, bookId]);
 
   const handleAnalyze = async () => {
     if (!text.trim()) return;

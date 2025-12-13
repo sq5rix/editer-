@@ -12,9 +12,10 @@ interface CharactersViewProps {
   typography: TypographySettings;
   onActiveContentUpdate?: (text: string) => void;
   user: (UserType & { uid?: string }) | null;
+  bookId: string;
 }
 
-const CharactersView: React.FC<CharactersViewProps> = ({ onCopy, typography, onActiveContentUpdate, user }) => {
+const CharactersView: React.FC<CharactersViewProps> = ({ onCopy, typography, onActiveContentUpdate, user, bookId }) => {
   const [input, setInput] = useState("");
   const [characters, setCharacters] = useState<Character[]>([]);
   const [loading, setLoading] = useState(false);
@@ -22,31 +23,46 @@ const CharactersView: React.FC<CharactersViewProps> = ({ onCopy, typography, onA
 
   // Load Data
   useEffect(() => {
-    if (user?.uid) {
-        FirebaseService.loadData(user.uid, 'characters', 'main').then(data => {
+    // Reset
+    setCharacters([]);
+
+    const loadData = async () => {
+        if (user?.uid) {
+            const data = await FirebaseService.loadData(user.uid, 'characters', bookId);
             if (data && data.characters) {
                 setCharacters(data.characters);
-            } else {
-                const saved = localStorage.getItem('inkflow_characters');
-                if (saved) setCharacters(JSON.parse(saved));
+                return;
             }
-        });
-    } else {
-        const saved = localStorage.getItem('inkflow_characters');
+        }
+        
+        // Fallback
+        const localKey = `inkflow_characters_${bookId}`;
+        const saved = localStorage.getItem(localKey);
+        // Migration
+        if (!saved && bookId === 'default' && localStorage.getItem('inkflow_characters')) {
+             const legacy = localStorage.getItem('inkflow_characters');
+             if (legacy) {
+                 setCharacters(JSON.parse(legacy));
+                 return;
+             }
+        }
+
         if (saved) setCharacters(JSON.parse(saved));
-    }
-  }, [user]);
+    };
+    loadData();
+  }, [user, bookId]);
 
   // Save Data
   useEffect(() => {
-    localStorage.setItem('inkflow_characters', JSON.stringify(characters));
+    const localKey = `inkflow_characters_${bookId}`;
+    localStorage.setItem(localKey, JSON.stringify(characters));
     if (user?.uid) {
         const timer = setTimeout(() => {
-            FirebaseService.saveData(user.uid!, 'characters', 'main', { characters });
+            FirebaseService.saveData(user.uid!, 'characters', bookId, { characters });
         }, 2000);
         return () => clearTimeout(timer);
     }
-  }, [characters, user]);
+  }, [characters, user, bookId]);
 
   // Broadcast for global copy
   useEffect(() => {

@@ -11,42 +11,58 @@ interface BraindumpViewProps {
   typography: TypographySettings;
   onActiveContentUpdate?: (text: string) => void;
   user: (User & { uid?: string }) | null;
+  bookId: string;
 }
 
-const BraindumpView: React.FC<BraindumpViewProps> = ({ onCopy, typography, onActiveContentUpdate, user }) => {
+const BraindumpView: React.FC<BraindumpViewProps> = ({ onCopy, typography, onActiveContentUpdate, user, bookId }) => {
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<BraindumpItem[]>([]);
 
   // Load Initial Data (Cloud > Local)
   useEffect(() => {
-    if (user?.uid) {
-        // Attempt cloud load
-        FirebaseService.loadData(user.uid, 'braindump', 'main').then(data => {
+    // Reset items first
+    setItems([]);
+
+    const loadData = async () => {
+        if (user?.uid) {
+            // Attempt cloud load
+            const data = await FirebaseService.loadData(user.uid, 'braindump', bookId);
             if (data && data.items) {
                 setItems(data.items);
-            } else {
-                // Fallback to local if cloud empty
-                const saved = localStorage.getItem('inkflow_braindumps');
-                if (saved) setItems(JSON.parse(saved));
+                return;
             }
-        });
-    } else {
-        const saved = localStorage.getItem('inkflow_braindumps');
+        }
+        
+        // Fallback to local
+        const localKey = `inkflow_braindumps_${bookId}`;
+        const saved = localStorage.getItem(localKey);
+        
+        // Migration Check
+        if (!saved && bookId === 'default' && localStorage.getItem('inkflow_braindumps')) {
+            const legacy = localStorage.getItem('inkflow_braindumps');
+            if (legacy) {
+                setItems(JSON.parse(legacy));
+                return;
+            }
+        }
+
         if (saved) setItems(JSON.parse(saved));
-    }
-  }, [user]);
+    };
+    loadData();
+  }, [user, bookId]);
 
   // Save Data (Cloud + Local)
   useEffect(() => {
-    localStorage.setItem('inkflow_braindumps', JSON.stringify(items));
+    const localKey = `inkflow_braindumps_${bookId}`;
+    localStorage.setItem(localKey, JSON.stringify(items));
     
     if (user?.uid) {
         const timer = setTimeout(() => {
-            FirebaseService.saveData(user.uid!, 'braindump', 'main', { items });
+            FirebaseService.saveData(user.uid!, 'braindump', bookId, { items });
         }, 2000);
         return () => clearTimeout(timer);
     }
-  }, [items, user]);
+  }, [items, user, bookId]);
 
   // Fuzzy Search Logic
   const filteredItems = useMemo(() => {
