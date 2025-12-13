@@ -243,6 +243,48 @@ export const generateCharacter = async (prompt: string): Promise<Omit<Character,
   }
 };
 
+export const generateCastFromStory = async (storyText: string): Promise<Omit<Character, 'id' | 'timestamp' | 'history'>[]> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: MODEL_TEXT,
+      contents: `Analyze the following story text. Identify the main cast and map them to the Greimas Actantial Model (Subject, Object, Sender, Receiver, Helper, Opponent).
+      
+      If the story is incomplete, infer potential characters or create them to fit the narrative structure.
+      
+      STORY TEXT:
+      "${storyText.substring(0, 15000)}"
+      
+      Return ONLY a JSON array of character objects. Each object must have:
+      - name
+      - greimasRole (One of: Subject, Object, Sender, Receiver, Helper, Opponent)
+      - coreDesire (1 sentence)
+      - description (Editorial style description)
+      `,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+           type: Type.ARRAY,
+           items: {
+               type: Type.OBJECT,
+               properties: {
+                  name: { type: Type.STRING },
+                  greimasRole: { type: Type.STRING, enum: ['Subject', 'Object', 'Sender', 'Receiver', 'Helper', 'Opponent'] },
+                  coreDesire: { type: Type.STRING },
+                  description: { type: Type.STRING }
+               },
+               required: ['name', 'greimasRole', 'coreDesire', 'description']
+           }
+        }
+      }
+    });
+
+    return JSON.parse(cleanJson(response.text));
+  } catch (error) {
+    console.error("Cast Gen Error:", error);
+    throw new Error("Failed to generate cast from story.");
+  }
+};
+
 export const refineCharacter = async (character: Character, userPrompt: string): Promise<string> => {
     try {
         const context = `

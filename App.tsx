@@ -739,6 +739,7 @@ const App: React.FC = () => {
               onActiveContentUpdate={setAuxContent}
               user={user}
               bookId={currentBookId}
+              manuscriptText={blocks.map(b => b.content).join('\n')}
            />
         ) : mode === 'metadata' ? (
            <MetadataView 

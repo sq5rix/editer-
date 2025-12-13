@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Plus, Trash2, Copy, Sparkles, Send, Loader2, ChevronDown, ChevronUp, MessageSquare } from 'lucide-react';
+import { User, Plus, Trash2, Copy, Sparkles, Send, Loader2, ChevronDown, ChevronUp, MessageSquare, BookOpen } from 'lucide-react';
 import { Character, TypographySettings, CharacterMessage, User as UserType } from '../types';
 import * as GeminiService from '../services/geminiService';
 import * as FirebaseService from '../services/firebase';
@@ -13,9 +13,10 @@ interface CharactersViewProps {
   onActiveContentUpdate?: (text: string) => void;
   user: (UserType & { uid?: string }) | null;
   bookId: string;
+  manuscriptText?: string;
 }
 
-const CharactersView: React.FC<CharactersViewProps> = ({ onCopy, typography, onActiveContentUpdate, user, bookId }) => {
+const CharactersView: React.FC<CharactersViewProps> = ({ onCopy, typography, onActiveContentUpdate, user, bookId, manuscriptText = "" }) => {
   const [input, setInput] = useState("");
   const [characters, setCharacters] = useState<Character[]>([]);
   const [loading, setLoading] = useState(false);
@@ -96,6 +97,27 @@ const CharactersView: React.FC<CharactersViewProps> = ({ onCopy, typography, onA
     }
   };
 
+  const handleGenerateFromStory = async () => {
+    if (!manuscriptText.trim()) return;
+    setLoading(true);
+    try {
+        const cast = await GeminiService.generateCastFromStory(manuscriptText);
+        const newChars = cast.map(c => ({
+            id: uuidv4(),
+            ...c,
+            history: [],
+            timestamp: Date.now()
+        }));
+        // Prepend to existing list
+        setCharacters(prev => [...newChars, ...prev]);
+    } catch(e) {
+        console.error(e);
+        alert("Failed to analyze story for characters.");
+    } finally {
+        setLoading(false);
+    }
+  };
+
   const handleFollowUp = async (characterId: string, prompt: string) => {
       if (!prompt.trim()) return;
       
@@ -150,6 +172,19 @@ const CharactersView: React.FC<CharactersViewProps> = ({ onCopy, typography, onA
                 Create complex characters aligned with the Greimas Actantial Model. 
                 Describe a role, a desire, or a story concept.
             </p>
+
+            {manuscriptText.length > 200 && (
+                <div className="mb-6 flex justify-center">
+                    <button 
+                        onClick={handleGenerateFromStory}
+                        disabled={loading}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full font-bold text-xs uppercase tracking-wider hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors shadow-sm disabled:opacity-50"
+                    >
+                        {loading ? <Loader2 size={16} className="animate-spin" /> : <BookOpen size={16} />}
+                        Analyze Story & Generate Cast
+                    </button>
+                </div>
+            )}
 
             <form onSubmit={handleCreate} className="relative max-w-xl mx-auto">
                 <input 
