@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { Block, TypographySettings, Mode } from '../types';
-import { Eye, BookOpen, GripVertical, Wand2, Sparkles, ArrowRight, X, MapPin } from 'lucide-react';
+import { Eye, BookOpen, GripVertical, Wand2, Sparkles, ArrowRight, X, MapPin, Trash2 } from 'lucide-react';
 import { motion, Reorder, useDragControls, AnimatePresence } from 'framer-motion';
 
 interface EditorBlockProps {
@@ -261,29 +261,42 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
                  <div className="h-px w-12 bg-zinc-300 dark:bg-zinc-700"></div>
                  <div className="text-zinc-400 dark:text-zinc-600 font-serif italic text-lg tracking-widest">* * *</div>
                  <div className="h-px w-12 bg-zinc-300 dark:bg-zinc-700"></div>
+                 
+                 {/* Delete button active on HR focus/hover */}
+                 {!readOnly && (
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); onRemove && onRemove(block.id); }}
+                        className="absolute right-0 p-1.5 text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                        title="Remove Break"
+                    >
+                        <Trash2 size={14} />
+                    </button>
+                 )}
              </div>
         </motion.div>
     );
   }
   
   // --- TEXT BLOCK RENDER ---
+  // Dirty styles take precedence over active styles to ensure they are visible.
   const dirtyClass = isDirty 
      ? 'bg-blue-50/50 dark:bg-blue-900/20 border-l-4 border-blue-500 pl-4 pr-2 py-2 rounded-r-lg -ml-4' 
      : '';
+  
+  const activeClass = isActive 
+     ? 'bg-zinc-50 dark:bg-zinc-900/30 rounded-lg -ml-4 pl-4 pr-2 py-2'
+     : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/30 rounded-lg -ml-4 pl-4 pr-2 py-2';
+
+  const containerClass = (mode === 'edit' && !readOnly)
+      ? (isDirty ? dirtyClass : activeClass)
+      : (isActive && mode === 'write' && !readOnly ? 'translate-x-0' : 'hover:opacity-100');
 
   return (
     <motion.div
       layoutId={!readOnly ? block.id : `${block.id}-readonly`}
       ref={containerRef}
       data-block-id={block.id}
-      className={`relative group transition-all duration-500 ease-in-out my-4 pl-4 md:pl-0 ${
-        isActive && mode === 'write' && !readOnly
-          ? 'translate-x-0' 
-          : mode === 'edit' && !readOnly 
-            // Edit mode logic
-            ? `${isActive ? 'bg-zinc-50 dark:bg-zinc-900/30 rounded-lg -ml-4 pl-4 pr-2 py-2' : dirtyClass || 'hover:bg-zinc-50 dark:hover:bg-zinc-900/30 rounded-lg -ml-4 pl-4 pr-2 py-2'}` 
-            : 'hover:opacity-100'
-      }`}
+      className={`relative group transition-all duration-500 ease-in-out my-4 pl-4 md:pl-0 ${containerClass}`}
       style={{ 
         opacity: (isActive || mode === 'edit') ? 1 : 0.8,
         zIndex: showPrompt ? 50 : 0
@@ -334,13 +347,20 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
 
        {/* WRITE MODE TOOLS (ACTIVE ONLY) */}
        {!readOnly && mode === 'write' && isActive && !showPrompt && (
-          <div className="absolute right-0 -top-7 z-20 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="absolute right-0 -top-7 z-20 animate-in fade-in slide-in-from-bottom-2 duration-300 flex items-center gap-2">
              <button 
                 onClick={(e) => { e.stopPropagation(); setShowPrompt(true); }}
                 className="flex items-center gap-2 px-3 py-1 bg-white dark:bg-zinc-800 text-amber-600 dark:text-amber-400 rounded-full hover:bg-amber-50 dark:hover:bg-zinc-700 transition-colors shadow-sm border border-zinc-200 dark:border-zinc-700 text-xs font-bold uppercase tracking-wider"
                 title="Magic Rewrite"
              >
                 <Sparkles size={12} /> Rewrite
+             </button>
+             <button 
+                onClick={(e) => { e.stopPropagation(); onRemove && onRemove(block.id); }}
+                className="p-1 bg-white dark:bg-zinc-800 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors shadow-sm border border-zinc-200 dark:border-zinc-700"
+                title="Delete Paragraph"
+             >
+                <Trash2 size={12} />
              </button>
           </div>
        )}

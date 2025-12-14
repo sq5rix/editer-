@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather, Book, ArrowRightLeft, ThumbsUp, ThumbsDown, Wand2 } from 'lucide-react';
-import { motion, Reorder } from 'framer-motion';
+import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather, Book, ArrowRightLeft, ThumbsUp, ThumbsDown, Wand2, AlertCircle } from 'lucide-react';
+import { motion, Reorder, AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
 import { Block, Suggestion, Theme, TypographySettings, Mode, User as UserType, BookEntry } from './types';
@@ -121,6 +121,7 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [isAutoCorrecting, setIsAutoCorrecting] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   // Research & Braindump & Metadata State
   const [auxContent, setAuxContent] = useState(""); 
@@ -171,13 +172,17 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  const handleError = (msg: string) => {
+    setErrorMessage(msg);
+    setTimeout(() => setErrorMessage(null), 4000);
+  };
 
   const handleLogin = async () => {
       try {
           await FirebaseService.loginWithGoogle();
           setSettingsOpen(false);
       } catch (e) {
-          alert("Login failed. Check console or config.");
+          handleError("Login failed. Please try again.");
       }
   };
 
@@ -226,7 +231,10 @@ const App: React.FC = () => {
   // -- Mode Switching Logic --
   const handleModeSwitch = (newMode: Mode) => {
     if (newMode === 'edit') {
-       setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
+       // Take a snapshot when entering edit mode, if we haven't already
+       if (originalSnapshot.length === 0) {
+           setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
+       }
        setSelectionRect(null); 
     }
     setMode(newMode);
@@ -248,30 +256,29 @@ const App: React.FC = () => {
       
       saveHistory();
       setIsAutoCorrecting(true);
+
+      // Force a render cycle to show spinner
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // 1. Snapshot CURRENT state so we can see diffs against it.
+      setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
       
-      // Ensure we have a snapshot for comparison (should be set on mode switch, but safety first)
-      if (originalSnapshot.length === 0) {
-          setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
-      }
+      const blocksQueue = [...blocks];
+      let failureCount = 0;
 
-      // Iterate through a copy of the blocks to avoid state closure issues during async
-      const blocksToProcess = [...blocks];
-
-      for (let i = 0; i < blocksToProcess.length; i++) {
-          const block = blocksToProcess[i];
+      for (let i = 0; i < blocksQueue.length; i++) {
+          const block = blocksQueue[i];
           
-          // Skip HRs or empty/short blocks to save tokens and time
-          if (block.type === 'hr' || block.content.trim().length < 2) continue;
+          if (block.type === 'hr' || block.content.trim().length < 3) continue;
 
           try {
-              // Call AI
+              // 3. API Call
               const correctedText = await GeminiService.autoCorrect(block.content);
               
-              // If text changed, update state immediately to show progress
+              // 4. Update State if Changed
               if (correctedText && correctedText !== block.content) {
                   setBlocks(prev => {
                       const newBlocks = [...prev];
-                      // Find index by ID in case array shifted (though unlikely in this loop without user interaction)
                       const idx = newBlocks.findIndex(b => b.id === block.id);
                       if (idx !== -1) {
                           newBlocks[idx] = { ...newBlocks[idx], content: correctedText };
@@ -279,8 +286,15 @@ const App: React.FC = () => {
                       return newBlocks;
                   });
               }
+              // Small delay between calls to let UI breathe and not hit rate limits too hard
+              await new Promise(resolve => setTimeout(resolve, 20));
           } catch (err) {
-              console.error(`Error correcting block ${block.id}`, err);
+              console.error(`Failed to correct block ${block.id}`, err);
+              failureCount++;
+              if (failureCount > 3) {
+                  handleError("Multiple errors occurred. Stopping auto-correct.");
+                  break;
+              }
           }
       }
 
@@ -439,6 +453,7 @@ const App: React.FC = () => {
   };
 
   const handleRemoveBlock = (id: string) => {
+      saveHistory();
       const index = blocks.findIndex(b => b.id === id);
       if (index > 0) {
           setActiveBlockId(blocks[index - 1].id);
@@ -468,6 +483,7 @@ const App: React.FC = () => {
         setSidebarOpen(true);
     } catch (e) {
         console.error("Rewrite failed", e);
+        handleError("Rewrite failed. Please check your connection.");
     }
   };
 
@@ -547,7 +563,7 @@ const App: React.FC = () => {
           }
         } catch (err) {
           console.error(err);
-          alert('Failed to read image. Please try again.');
+          handleError("Failed to read image. Please try again.");
         } finally {
           setLoading(false);
           if (fileInputRef.current) fileInputRef.current.value = '';
@@ -558,7 +574,7 @@ const App: React.FC = () => {
   };
 
   const handleClearText = () => {
-    if (!window.confirm("Are you sure you want to clear the entire manuscript?")) return;
+    if (!window.confirm("Are you sure you want to delete the entire manuscript? This cannot be undone easily.")) return;
     saveHistory();
     const newId = uuidv4();
     setBlocks([{ id: newId, type: 'p', content: '' }]);
@@ -600,18 +616,22 @@ const App: React.FC = () => {
     setSuggestion(null);
     setSelectionRect(null);
 
-    let results: string[] = [];
-    
-    if (action === 'synonym') results = await GeminiService.getSynonyms(selectedText);
-    if (action === 'expand') results = await GeminiService.expandText(selectedText);
-    if (action === 'grammar') results = await GeminiService.checkGrammar(selectedText);
+    try {
+        let results: string[] = [];
+        if (action === 'synonym') results = await GeminiService.getSynonyms(selectedText);
+        if (action === 'expand') results = await GeminiService.expandText(selectedText);
+        if (action === 'grammar') results = await GeminiService.checkGrammar(selectedText);
 
-    setSuggestion({
-      type: action,
-      originalText: selectedText,
-      options: results
-    });
-    setLoading(false);
+        setSuggestion({
+            type: action,
+            originalText: selectedText,
+            options: results
+        });
+    } catch (e) {
+        handleError("AI request failed.");
+    } finally {
+        setLoading(false);
+    }
   };
 
   const handleBlockAnalysis = async (blockId: string, type: 'sensory' | 'show-dont-tell' | 'fluency' | 'sense-of-place') => {
@@ -625,14 +645,18 @@ const App: React.FC = () => {
     setSuggestion(null);
     setSelectionRect(null);
 
-    const results = await GeminiService.analyzeParagraph(block.content, type);
-    
-    setSuggestion({
-      type: type,
-      originalText: block.content,
-      options: results
-    });
-    setLoading(false);
+    try {
+        const results = await GeminiService.analyzeParagraph(block.content, type);
+        setSuggestion({
+            type: type,
+            originalText: block.content,
+            options: results
+        });
+    } catch (e) {
+        handleError("Analysis failed.");
+    } finally {
+        setLoading(false);
+    }
   };
 
   const handleCustomPrompt = async (prompt: string) => {
@@ -650,14 +674,18 @@ const App: React.FC = () => {
     setSuggestion(null);
     setSelectionRect(null);
 
-    const results = await GeminiService.customRewrite(textToAnalyze, prompt);
-
-    setSuggestion({
-      type: 'expand',
-      originalText: textToAnalyze,
-      options: results
-    });
-    setLoading(false);
+    try {
+        const results = await GeminiService.customRewrite(textToAnalyze, prompt);
+        setSuggestion({
+            type: 'expand',
+            originalText: textToAnalyze,
+            options: results
+        });
+    } catch (e) {
+        handleError("Custom prompt failed.");
+    } finally {
+        setLoading(false);
+    }
   };
 
   const applySuggestion = (text: string) => {
@@ -729,6 +757,21 @@ const App: React.FC = () => {
       {/* Background */}
       <div className="fixed inset-0 pointer-events-none opacity-50 dark:opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]"></div>
 
+      {/* Global Toast for Errors */}
+      <AnimatePresence>
+        {errorMessage && (
+            <motion.div 
+                initial={{ opacity: 0, y: -20, x: "-50%" }}
+                animate={{ opacity: 1, y: 0, x: "-50%" }}
+                exit={{ opacity: 0, y: -20, x: "-50%" }}
+                className="fixed top-24 left-1/2 z-[200] bg-red-500 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-3 font-medium text-sm"
+            >
+                <AlertCircle size={18} />
+                {errorMessage}
+            </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Global Loading */}
       {loading && !sidebarOpen && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/20 backdrop-blur-sm">
@@ -789,7 +832,7 @@ const App: React.FC = () => {
                         <button 
                             onClick={handleAutoCorrect} 
                             disabled={isAutoCorrecting}
-                            className={`flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-400 disabled:cursor-wait text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap`}
+                            className={`flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-400 disabled:cursor-wait text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap min-w-[100px] justify-center`}
                             title="Auto Correct"
                         >
                             {isAutoCorrecting ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />} 
@@ -804,8 +847,13 @@ const App: React.FC = () => {
                     </div>
                 )}
 
+                {/* Trash Button - Ensures visibility and correct callback */}
                 {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && mode !== 'metadata' && mode !== 'edit' && (
-                <button onClick={handleClearText} className="p-2 rounded-full text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all" title="Clear Text">
+                <button 
+                    onClick={handleClearText} 
+                    className="p-2 rounded-full text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all pointer-events-auto" 
+                    title="Clear Text"
+                >
                     <Trash2 size={18} />
                 </button>
                 )}
