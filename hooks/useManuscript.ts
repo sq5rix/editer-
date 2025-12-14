@@ -178,7 +178,8 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
           // Snapshot for diffing
           setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
           
-          await new Promise(resolve => setTimeout(resolve, 100));
+          // Initial delay to show spinner
+          await new Promise(resolve => setTimeout(resolve, 500));
 
           const blocksToProcess = [...blocks]; 
 

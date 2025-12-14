@@ -132,17 +132,6 @@ const TopBar: React.FC<TopBarProps> = ({
                         </div>
                     )}
 
-                    {/* Trash Button - Fixed Click Handler */}
-                    {!isAuxMode && mode !== 'edit' && (
-                        <button 
-                            onClick={onClear} 
-                            className="p-2 rounded-full text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all cursor-pointer" 
-                            title="Clear Text"
-                        >
-                            <Trash2 size={18} />
-                        </button>
-                    )}
-
                     <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
 
                     <button onClick={onSettings} className="p-3 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-all touch-manipulation text-zinc-600 dark:text-zinc-400 hover:text-ink dark:hover:text-zinc-200" title="Settings">

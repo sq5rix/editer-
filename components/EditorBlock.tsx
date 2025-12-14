@@ -140,7 +140,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   const commonClasses = `w-full bg-transparent outline-none border-none transition-all duration-300 ${getFontClass()} ${
     block.type === 'h1' 
       ? 'font-bold mb-6 mt-8 text-black dark:text-white' 
-      : isDirty ? 'text-blue-900 dark:text-blue-100' : 'text-zinc-900 dark:text-white'
+      : isDirty ? 'text-orange-900 dark:text-orange-100' : 'text-zinc-900 dark:text-white'
   }`;
 
   // --- CLICK / TAP HANDLER ---
@@ -168,7 +168,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
     }
   };
 
-  // --- SHUFFLE MODE HANDLERS --- (Omitted logic same as before, see render)
+  // --- SHUFFLE MODE HANDLERS ---
   const handlePointerDown = (e: React.PointerEvent) => {
     if (mode !== 'shuffle') return;
     const target = e.target as HTMLElement;
@@ -278,8 +278,8 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
       // Yellow Pulse
       containerClass += 'bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 pl-4 pr-2 py-2 rounded-r-lg -ml-4 animate-pulse duration-1000';
   } else if (isDirty) {
-      // Blue Highlight
-      containerClass += 'bg-blue-50/50 dark:bg-blue-900/20 border-l-4 border-blue-500 pl-4 pr-2 py-2 rounded-r-lg -ml-4';
+      // Orange Highlight (Changed from Blue)
+      containerClass += 'bg-orange-50/50 dark:bg-orange-900/20 border-l-4 border-orange-500 pl-4 pr-2 py-2 rounded-r-lg -ml-4';
   } else if (isActive) {
       containerClass += 'bg-zinc-50 dark:bg-zinc-900/30 rounded-lg -ml-4 pl-4 pr-2 py-2';
   } else {
@@ -298,7 +298,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
       }}
       onClick={handleClick}
     >
-       {/* EDIT MODE TOOLS (Omitted for brevity, assume same as before) */}
+       {/* EDIT MODE TOOLS */}
        {!readOnly && mode === 'edit' && !showPrompt && !isProcessing && (
            <div className={`absolute right-0 -top-7 flex flex-row justify-end items-center gap-2 transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} pointer-events-auto z-20`}>
               <button onClick={(e) => { e.stopPropagation(); setShowPrompt(true); }} className="p-1.5 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-500 rounded-full hover:bg-amber-200 shadow-sm border border-amber-200">
@@ -310,7 +310,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
            </div>
        )}
 
-       {/* WRITE MODE TOOLS (Active Only) */}
+       {/* WRITE MODE TOOLS */}
        {!readOnly && mode === 'write' && isActive && !showPrompt && (
           <div className="absolute right-0 -top-7 z-20 animate-in fade-in slide-in-from-bottom-2 duration-300 flex items-center gap-2">
              <button onClick={(e) => { e.stopPropagation(); setShowPrompt(true); }} className="flex items-center gap-2 px-3 py-1 bg-white dark:bg-zinc-800 text-amber-600 rounded-full hover:bg-amber-50 shadow-sm border border-zinc-200 text-xs font-bold uppercase">
@@ -381,7 +381,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
           {diffSegments ? (
               <span>
                   {diffSegments.map((seg, idx) => (
-                      <span key={idx} className={seg.type === 'added' ? 'text-blue-600 dark:text-blue-400 underline decoration-blue-300 dark:decoration-blue-700 decoration-2 underline-offset-2 bg-blue-50 dark:bg-blue-900/20' : ''}>
+                      <span key={idx} className={seg.type === 'added' ? 'text-orange-600 dark:text-orange-400 underline decoration-orange-300 dark:decoration-orange-700 decoration-2 underline-offset-2 bg-orange-50 dark:bg-orange-900/20' : ''}>
                           {seg.text}
                       </span>
                   ))}
