@@ -197,6 +197,7 @@ const BraindumpView: React.FC<BraindumpViewProps> = ({ onCopy, typography, onAct
                             </div>
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button 
+                                    type="button"
                                     onClick={() => onCopy(item.content)}
                                     className="p-1.5 text-zinc-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 rounded-md transition-colors"
                                     title="Copy"
@@ -204,6 +205,7 @@ const BraindumpView: React.FC<BraindumpViewProps> = ({ onCopy, typography, onAct
                                     <Copy size={14} />
                                 </button>
                                 <button 
+                                    type="button"
                                     onClick={() => handleDelete(item.id)}
                                     className="p-1.5 text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
                                     title="Delete"

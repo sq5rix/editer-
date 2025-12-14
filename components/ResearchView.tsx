@@ -181,6 +181,7 @@ const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography, onActiv
       <div className="flex items-center justify-between mb-8 px-4">
          <div className="flex items-center gap-2">
             <button 
+              type="button"
               onClick={() => setActiveThreadIndex(Math.max(0, activeThreadIndex - 1))}
               disabled={activeThreadIndex === 0 || threads.length === 0}
               className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors"
@@ -191,6 +192,7 @@ const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography, onActiv
                 {threads.length > 0 ? `${activeThreadIndex + 1} / ${threads.length}` : '0 / 0'}
             </span>
             <button 
+              type="button"
               onClick={() => setActiveThreadIndex(Math.min(threads.length - 1, activeThreadIndex + 1))}
               disabled={activeThreadIndex >= threads.length - 1 || threads.length === 0}
               className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-30 transition-colors"
@@ -200,6 +202,7 @@ const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography, onActiv
             
             {isViewingThread && (
               <button 
+                type="button"
                 onClick={deleteThread}
                 className="p-2 rounded-full text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors ml-2"
                 title="Delete Thread"
@@ -210,6 +213,7 @@ const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography, onActiv
          </div>
 
          <button 
+            type="button"
             onClick={() => { setQuery(""); setActiveThreadIndex(threads.length); }}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${!isViewingThread && !loading ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-500' : 'text-zinc-500 hover:text-ink dark:hover:text-zinc-300'}`}
          >
@@ -300,6 +304,7 @@ const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography, onActiv
 
                       <div className="absolute top-4 right-4 md:top-8 md:right-8 opacity-50 group-hover:opacity-100 transition-opacity">
                          <button 
+                           type="button"
                            onClick={() => handleLocalCopy(interaction.id, interaction.content)}
                            className={`p-2 transition-colors rounded-lg ${copiedId === interaction.id ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-zinc-400 hover:text-indigo-600 hover:bg-zinc-100 dark:hover:bg-zinc-700/50'}`}
                            title="Copy section"
@@ -376,6 +381,7 @@ const ResearchView: React.FC<ResearchViewProps> = ({ onCopy, typography, onActiv
                     className="flex-1 bg-transparent border-none outline-none px-4 py-3 text-sm md:text-base dark:text-white placeholder-zinc-500"
                   />
                   <button 
+                    type="button"
                     onClick={handleFollowUp}
                     disabled={!followUpQuery.trim() || loading}
                     className="p-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-200 dark:disabled:bg-zinc-800 disabled:text-zinc-400 text-white rounded-xl transition-all shadow-md"

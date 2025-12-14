@@ -348,22 +348,22 @@ const CharacterCard: React.FC<{
                     <div className="flex gap-2">
                         {isEditing ? (
                             <>
-                                <button onClick={handleSave} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-full transition-colors" title="Save">
+                                <button type="button" onClick={handleSave} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-full transition-colors" title="Save">
                                     <Check size={16} />
                                 </button>
-                                <button onClick={handleCancel} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors" title="Cancel">
+                                <button type="button" onClick={handleCancel} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-colors" title="Cancel">
                                     <X size={16} />
                                 </button>
                             </>
                         ) : (
                             <>
-                                <button onClick={() => setIsEditing(true)} className="p-2 text-zinc-400 hover:text-indigo-600 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition-colors" title="Edit">
+                                <button type="button" onClick={() => setIsEditing(true)} className="p-2 text-zinc-400 hover:text-indigo-600 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition-colors" title="Edit">
                                     <Edit2 size={16} />
                                 </button>
-                                <button onClick={() => onCopy(character.description)} className="p-2 text-zinc-400 hover:text-indigo-600 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition-colors" title="Copy Description">
+                                <button type="button" onClick={() => onCopy(character.description)} className="p-2 text-zinc-400 hover:text-indigo-600 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-700/50 transition-colors" title="Copy Description">
                                     <Copy size={16} />
                                 </button>
-                                <button onClick={() => onDelete(character.id)} className="p-2 text-zinc-400 hover:text-red-600 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete">
+                                <button type="button" onClick={() => onDelete(character.id)} className="p-2 text-zinc-400 hover:text-red-600 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete">
                                     <Trash2 size={16} />
                                 </button>
                             </>
@@ -424,12 +424,13 @@ const CharacterCard: React.FC<{
                 )}
             </div>
 
-            {/* Bottom: Refinements & Notes (Vertical Stack "Braindump Style") */}
+            {/* Bottom: Refinements & Notes */}
             <div className="border-t border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 p-6 md:pl-12 flex flex-col gap-4">
                 
                 {/* Expand Toggle if history exists */}
                 {character.history.length > 0 && (
                     <button 
+                        type="button"
                         onClick={() => setShowHistory(!showHistory)}
                         className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest hover:text-indigo-500 transition-colors w-full"
                     >
@@ -498,6 +499,7 @@ const CharacterCard: React.FC<{
                         className="w-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl pl-4 pr-12 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-sm transition-shadow resize-none"
                     />
                     <button 
+                        type="button"
                         onClick={handleSend}
                         disabled={!prompt.trim() || isGenerating}
                         className="absolute right-2 top-2 p-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:bg-zinc-300 dark:disabled:bg-zinc-700"

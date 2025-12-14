@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TextareaAutosize from 'react-textarea-autosize';
-import { Book, Sparkles, Copy, Loader2, Save, Tag, X as XIcon, ChevronDown, Plus, Trash2, Edit2, Check } from 'lucide-react';
+import { Book, Sparkles, Copy, Loader2, Save, Tag, X as XIcon, ChevronDown, Plus, Trash2, Edit2, Check, AlertTriangle } from 'lucide-react';
 import { BookMetadata, TypographySettings, User, BookEntry } from '../types';
 import * as GeminiService from '../services/geminiService';
 import * as FirebaseService from '../services/firebase';
@@ -39,8 +39,7 @@ const MetadataView: React.FC<MetadataViewProps> = ({
   
   // Selector State
   const [selectorOpen, setSelectorOpen] = useState(false);
-  const [editingTitle, setEditingTitle] = useState(false);
-  const titleInputRef = useRef<HTMLInputElement>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Load Data for CURRENT book
   useEffect(() => {
@@ -207,17 +206,29 @@ const MetadataView: React.FC<MetadataViewProps> = ({
                                                 {book.title || "Untitled"}
                                             </div>
                                         </div>
+                                        
+                                        {/* Robust Delete Button - 2 Step */}
                                         {books.length > 1 && (
                                             <button 
+                                                type="button"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    if(window.confirm(`Delete "${book.title}"? This cannot be undone.`)) {
+                                                    if (deleteConfirmId === book.id) {
                                                         onDeleteBook(book.id);
+                                                        setDeleteConfirmId(null);
+                                                    } else {
+                                                        setDeleteConfirmId(book.id);
+                                                        setTimeout(() => setDeleteConfirmId(null), 3000);
                                                     }
                                                 }}
-                                                className="opacity-0 group-hover:opacity-100 p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-all"
+                                                className={`p-1.5 rounded-md transition-all ${
+                                                    deleteConfirmId === book.id 
+                                                    ? 'bg-red-500 text-white opacity-100' 
+                                                    : 'text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 opacity-0 group-hover:opacity-100'
+                                                }`}
+                                                title={deleteConfirmId === book.id ? "Click to Confirm" : "Delete Book"}
                                             >
-                                                <Trash2 size={14} />
+                                                {deleteConfirmId === book.id ? <AlertTriangle size={14} /> : <Trash2 size={14} />}
                                             </button>
                                         )}
                                     </div>
@@ -268,7 +279,7 @@ const MetadataView: React.FC<MetadataViewProps> = ({
                                 onClick={handleGenSubtitle}
                                 disabled={loading === 'subtitle'}
                                 className="text-xs flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline disabled:opacity-50"
-                             >
+                            >
                                  {loading === 'subtitle' ? <Loader2 size={12} className="animate-spin"/> : <Sparkles size={12}/>}
                                  Suggest
                              </button>

@@ -259,6 +259,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
                  <div className="h-px w-12 bg-zinc-300 dark:bg-zinc-700"></div>
                  {!readOnly && (
                     <button 
+                        type="button"
                         onClick={(e) => { e.stopPropagation(); onRemove && onRemove(block.id); }}
                         className="absolute right-0 p-1.5 text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all opacity-0 group-hover:opacity-100"
                         title="Remove Break"
@@ -313,10 +314,19 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
        {/* WRITE MODE TOOLS */}
        {!readOnly && mode === 'write' && isActive && !showPrompt && (
           <div className="absolute right-0 -top-7 z-20 animate-in fade-in slide-in-from-bottom-2 duration-300 flex items-center gap-2">
-             <button onClick={(e) => { e.stopPropagation(); setShowPrompt(true); }} className="flex items-center gap-2 px-3 py-1 bg-white dark:bg-zinc-800 text-amber-600 rounded-full hover:bg-amber-50 shadow-sm border border-zinc-200 text-xs font-bold uppercase">
+             <button 
+                 type="button"
+                 onClick={(e) => { e.stopPropagation(); setShowPrompt(true); }} 
+                 className="flex items-center gap-2 px-3 py-1 bg-white dark:bg-zinc-800 text-amber-600 rounded-full hover:bg-amber-50 shadow-sm border border-zinc-200 text-xs font-bold uppercase"
+             >
                 <Sparkles size={12} /> Rewrite
              </button>
-             <button onClick={(e) => { e.stopPropagation(); onRemove && onRemove(block.id); }} className="p-1 bg-white text-zinc-400 hover:text-red-500 rounded-full shadow-sm border border-zinc-200">
+             <button 
+                 type="button"
+                 onClick={(e) => { e.stopPropagation(); onRemove && onRemove(block.id); }} 
+                 className="p-1 bg-white text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-full shadow-sm border border-zinc-200 transition-colors"
+                 title="Delete Paragraph"
+             >
                 <Trash2 size={12} />
              </button>
           </div>
