@@ -691,7 +691,12 @@ const App: React.FC = () => {
       <header className="fixed top-0 left-0 w-full z-30 bg-gradient-to-b from-paper via-paper/90 to-transparent dark:from-zinc-950 dark:via-zinc-950/90 h-24 pointer-events-none ui-no-select flex items-center">
         <div className="w-full max-w-7xl mx-auto px-4 md:px-6 flex justify-between items-center pointer-events-auto">
             <div className="flex items-center gap-2 md:gap-4 flex-shrink min-w-0">
-                <h1 className="font-display font-bold text-xl md:text-2xl tracking-wider text-ink dark:text-zinc-100 hidden md:block">InkFlow</h1>
+                <div className="hidden md:block">
+                    <h1 className="font-display font-bold text-xl tracking-wider text-ink dark:text-zinc-100 leading-none">InkFlow</h1>
+                    <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest mt-1">
+                        {countWords(blocks)} Words
+                    </div>
+                </div>
                 <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-800 mx-2 hidden md:block"></div>
                 <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 shadow-inner border border-zinc-200 dark:border-zinc-700 overflow-x-auto no-scrollbar max-w-[60vw] md:max-w-none">
                     <ModeBtn id="metadata" icon={Book} label="Meta" />
@@ -702,10 +707,6 @@ const App: React.FC = () => {
                     <ModeBtn id="edit" icon={Edit3} label="Edit" />
                     <ModeBtn id="shuffle" icon={Shuffle} label="Shuffle" />
                     <ModeBtn id="analysis" icon={Feather} label="Style" />
-                </div>
-                <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-800 mx-2 hidden xl:block"></div>
-                <div className="text-xs font-mono text-zinc-500 uppercase tracking-widest hidden xl:block whitespace-nowrap">
-                    {countWords(blocks)} Words
                 </div>
             </div>
 
