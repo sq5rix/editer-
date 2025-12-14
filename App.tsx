@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather, Book, ArrowRightLeft, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather, Book, ArrowRightLeft, ThumbsUp, ThumbsDown, Wand2 } from 'lucide-react';
 import { motion, Reorder } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -240,6 +240,30 @@ const App: React.FC = () => {
       if (window.confirm("Discard all changes made in the Live Editor?")) {
           setBlocks(JSON.parse(JSON.stringify(originalSnapshot)));
       }
+  };
+
+  const handleAutoCorrect = async () => {
+      if (!window.confirm("This will process the entire document to correct simple punctuation and grammar mistakes. Continue?")) return;
+      
+      saveHistory();
+      setLoading(true);
+
+      const newBlocks = [...blocks];
+      // Process in sequence to avoid rate limits and keep it simple
+      for (let i = 0; i < newBlocks.length; i++) {
+          const block = newBlocks[i];
+          // Skip HRs or very short blocks
+          if (block.type === 'hr' || block.content.trim().length < 5) continue;
+
+          // Don't correct H1s usually as they might be stylistic, but let's do it if it's longer
+          if (block.type === 'h1' && block.content.length < 3) continue;
+
+          const corrected = await GeminiService.autoCorrect(block.content);
+          newBlocks[i] = { ...block, content: corrected };
+      }
+
+      setBlocks(newBlocks);
+      setLoading(false);
   };
 
   // -- Scroll Sync Logic (Edit Mode) --
@@ -741,6 +765,9 @@ const App: React.FC = () => {
 
                 {mode === 'edit' && (
                     <div className="flex gap-2">
+                        <button onClick={handleAutoCorrect} className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap" title="Auto Correct">
+                            <Wand2 size={14} /> <span className="hidden md:inline">Correct</span>
+                        </button>
                         <button onClick={handleApproveChanges} className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap" title="Approve Changes">
                             <ThumbsUp size={14} /> <span className="hidden md:inline">Approve</span>
                         </button>

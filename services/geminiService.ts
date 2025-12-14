@@ -95,6 +95,23 @@ export const checkGrammar = async (text: string): Promise<string[]> => {
   }
 };
 
+export const autoCorrect = async (text: string): Promise<string> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: MODEL_FAST,
+      contents: `Correct standard grammar, spelling, and punctuation errors in the following text. 
+      Keep the original voice, tone, and meaning exactly as is. 
+      Do not change stylistic choices unless they are objectively incorrect. 
+      Return ONLY the corrected text.
+      Text: "${text}"`,
+    });
+    return response.text?.trim() || text;
+  } catch (error) {
+    console.error("AutoCorrect Error:", error);
+    return text; // Fallback to original
+  }
+};
+
 export const analyzeParagraph = async (text: string, type: 'sensory' | 'show-dont-tell' | 'fluency' | 'sense-of-place'): Promise<string[]> => {
   let prompt = "";
   if (type === 'sensory') {
