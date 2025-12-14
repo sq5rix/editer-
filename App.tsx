@@ -718,6 +718,19 @@ const App: React.FC = () => {
           </div>
       )}
 
+      {/* Auto-Correct Blocking Overlay */}
+      {isAutoCorrecting && (
+          <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/20 backdrop-blur-sm cursor-wait">
+             <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 border border-zinc-200 dark:border-zinc-700">
+                <Loader2 className="animate-spin text-blue-500" size={32} />
+                <div className="text-center">
+                    <h3 className="font-bold text-zinc-800 dark:text-zinc-100">Polishing Manuscript</h3>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">Correcting grammar & punctuation...</p>
+                </div>
+             </div>
+          </div>
+      )}
+
       {/* Header */}
       <header className="fixed top-0 left-0 w-full z-30 bg-gradient-to-b from-paper via-paper/90 to-transparent dark:from-zinc-950 dark:via-zinc-950/90 h-24 pointer-events-none ui-no-select flex items-center">
         <div className="w-full max-w-7xl mx-auto px-4 md:px-6 flex justify-between items-center pointer-events-auto">
