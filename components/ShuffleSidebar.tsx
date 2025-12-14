@@ -1,20 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Search, GripVertical, Plus, Brain, User, Globe, X } from 'lucide-react';
-import { BraindumpItem, Character, ResearchThread } from '../types';
+import { ChevronLeft, ChevronRight, Search, GripVertical, Plus, Brain, User, Globe, X, FileText, ArrowUpRight } from 'lucide-react';
+import { BraindumpItem, Character, ResearchThread, Block } from '../types';
 
-type SourceType = 'braindump' | 'characters' | 'research';
+type SourceType = 'braindump' | 'characters' | 'research' | 'manuscript';
 
 interface ShuffleSidebarProps {
   onInsert: (text: string) => void;
+  onNavigate: (blockId: string) => void;
+  blocks: Block[];
   braindumpData: BraindumpItem[];
   characterData: Character[];
   researchData: ResearchThread[];
 }
 
-const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, braindumpData, characterData, researchData }) => {
+const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, onNavigate, blocks, braindumpData, characterData, researchData }) => {
   const [activeSourceIndex, setActiveSourceIndex] = useState(0);
-  const sources: SourceType[] = ['braindump', 'characters', 'research'];
+  const sources: SourceType[] = ['braindump', 'characters', 'research']; // Manuscript is hidden from tabs, only visible in search
   const [searchQuery, setSearchQuery] = useState("");
   
   const activeSource = sources[activeSourceIndex];
@@ -22,28 +24,90 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, braindumpData
   const handleNext = () => setActiveSourceIndex((prev) => (prev + 1) % sources.length);
   const handlePrev = () => setActiveSourceIndex((prev) => (prev - 1 + sources.length) % sources.length);
 
-  // Fuzzy match helper
-  const isMatch = (text: string, query: string) => {
-      if (!query) return true;
-      const cleanQuery = query.trim().replace(/\s+/g, ''); // Remove spaces for stricter fuzzy
-      if (!cleanQuery) return true;
+  // --- Search Logic ---
+
+  // Helper: Find matches and return context snippets
+  const getMatches = (text: string, query: string) => {
+      if (!text || !query) return [];
+      const normalizedText = text.toLowerCase();
+      const normalizedQuery = query.toLowerCase().trim();
       
-      try {
-          // Escape regex characters
-          const escaped = cleanQuery.split('').map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-          // Join with .* for fuzzy matching (e.g. "abc" matches "a...b...c")
-          const pattern = escaped.join('.*');
-          const re = new RegExp(pattern, 'i');
-          return re.test(text);
-      } catch (e) {
-          // Fallback to simple includes if regex fails (rare)
-          return text.toLowerCase().includes(query.toLowerCase());
+      if (!normalizedQuery) return [];
+
+      const matches: { start: number, end: number, preview: string }[] = [];
+      
+      // Simple substring search for context preview
+      const index = normalizedText.indexOf(normalizedQuery);
+      if (index !== -1) {
+          const start = Math.max(0, index - 30);
+          const end = Math.min(text.length, index + query.length + 30);
+          const prefix = start > 0 ? '...' : '';
+          const suffix = end < text.length ? '...' : '';
+          
+          matches.push({
+              start: index,
+              end: index + query.length,
+              preview: prefix + text.substring(start, end) + suffix
+          });
+      } else {
+          // Token fallback for display if exact phrase not found
+          const words = normalizedQuery.split(/\s+/);
+          const firstWordIdx = normalizedText.indexOf(words[0]);
+          if (firstWordIdx !== -1) {
+             const start = Math.max(0, firstWordIdx - 30);
+             const end = Math.min(text.length, firstWordIdx + 50);
+             matches.push({
+                 start: firstWordIdx,
+                 end: end,
+                 preview: (start > 0 ? '...' : '') + text.substring(start, end) + '...'
+             });
+          }
       }
+      
+      return matches;
   };
 
-  // Flatten all data first
+  const isMatch = (text: string, query: string) => {
+      if (!text || !query) return false;
+      const normalizedText = text.toLowerCase();
+      const normalizedQuery = query.toLowerCase().trim();
+      
+      // 1. Exact substring
+      if (normalizedText.includes(normalizedQuery)) return true;
+      
+      // 2. Token match
+      const tokens = normalizedQuery.split(/\s+/).filter(t => t.length > 0);
+      if (tokens.every(t => normalizedText.includes(t))) return true;
+
+      // 3. Sequential match (fuzzy)
+      // e.g. "chr" matches "character"
+      let searchIndex = 0;
+      let matchedChars = 0;
+      for (const char of normalizedQuery) {
+          if (char === ' ') continue;
+          const idx = normalizedText.indexOf(char, searchIndex);
+          if (idx === -1) return false;
+          searchIndex = idx + 1;
+          matchedChars++;
+      }
+      // Only return true if we matched something significant (avoids empty query matching everything if logic fails)
+      return matchedChars > 0;
+  };
+
+  // Flatten all data
   const allItems = useMemo(() => {
     const items: { id: string; type: SourceType; title?: string; content: string; fullText: string }[] = [];
+
+    // Manuscript Blocks
+    blocks.forEach(block => {
+        if (block.type === 'hr' || !block.content.trim()) return;
+        items.push({
+            id: block.id,
+            type: 'manuscript',
+            content: block.content,
+            fullText: block.content
+        });
+    });
 
     // Braindump
     braindumpData.forEach(item => {
@@ -62,7 +126,7 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, braindumpData
             type: 'characters',
             title: char.name,
             content: char.coreDesire,
-            fullText: `**${char.name}** (${char.greimasRole})\n\n${char.description}`
+            fullText: `${char.name} ${char.greimasRole} ${char.coreDesire} ${char.description} ${char.history.map(h => h.content).join(' ')}`
         });
     });
 
@@ -74,26 +138,27 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, braindumpData
                 type: 'research',
                 title: interaction.query,
                 content: interaction.content.substring(0, 150) + "...",
-                fullText: `### ${interaction.query}\n\n${interaction.content}`
+                fullText: `${interaction.query} ${interaction.content}`
             });
         });
     });
 
     return items;
-  }, [braindumpData, characterData, researchData]);
+  }, [blocks, braindumpData, characterData, researchData]);
 
-  // Filter based on search query or active tab
+  // Filter
   const displayItems = useMemo(() => {
     if (!searchQuery.trim()) {
-        // If no search, show only active tab
         return allItems.filter(i => i.type === activeSource);
     }
     
-    // If searching, search EVERYTHING
-    return allItems.filter(i => 
-      (i.title && isMatch(i.title, searchQuery)) || 
-      isMatch(i.content, searchQuery)
-    );
+    // Search
+    return allItems
+        .filter(i => isMatch(i.fullText, searchQuery))
+        .map(item => ({
+            ...item,
+            snippets: getMatches(item.fullText, searchQuery)
+        }));
   }, [allItems, searchQuery, activeSource]);
 
   const handleDragStart = (e: React.DragEvent, text: string) => {
@@ -103,10 +168,37 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, braindumpData
 
   const getIcon = (type: SourceType) => {
       switch(type) {
-          case 'braindump': return <Brain size={10} />;
-          case 'characters': return <User size={10} />;
-          case 'research': return <Globe size={10} />;
+          case 'braindump': return <Brain size={12} />;
+          case 'characters': return <User size={12} />;
+          case 'research': return <Globe size={12} />;
+          case 'manuscript': return <FileText size={12} />;
       }
+  };
+
+  const getColorClass = (type: SourceType) => {
+      switch(type) {
+          case 'braindump': return 'bg-teal-50 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400';
+          case 'characters': return 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400';
+          case 'research': return 'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400';
+          case 'manuscript': return 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300';
+      }
+  };
+
+  // Text highlighter component
+  const HighlightedText = ({ text, highlight }: { text: string, highlight: string }) => {
+      if (!highlight.trim()) return <span>{text}</span>;
+      
+      // Simple highlight for the exact query string
+      const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
+      return (
+          <span>
+              {parts.map((part, i) => 
+                  part.toLowerCase() === highlight.toLowerCase() 
+                  ? <mark key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-inherit rounded-sm px-0.5">{part}</mark> 
+                  : part
+              )}
+          </span>
+      );
   };
 
   return (
@@ -119,7 +211,7 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, braindumpData
               <ChevronLeft size={18} />
             </button>
             
-            <div className="font-display font-bold text-sm uppercase tracking-widest text-zinc-600 dark:text-zinc-300 w-24 text-center select-none flex items-center justify-center gap-2">
+            <div className="font-display font-bold text-sm uppercase tracking-widest text-zinc-600 dark:text-zinc-300 w-32 text-center select-none flex items-center justify-center gap-2">
               {getIcon(activeSource)}
               <span className="capitalize">{activeSource}</span>
             </div>
@@ -134,7 +226,7 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, braindumpData
                   Global Search
               </div>
               <div className="text-xs text-zinc-400">
-                  {displayItems.length} results
+                  {displayItems.length} found
               </div>
           </div>
       )}
@@ -148,7 +240,7 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, braindumpData
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Type to search all cards..."
+          placeholder="Search manuscript & cards..."
           className={`w-full bg-white dark:bg-zinc-800 border ${searchQuery ? 'border-indigo-400 dark:border-indigo-600 ring-2 ring-indigo-500/10' : 'border-zinc-200 dark:border-zinc-700'} rounded-xl pl-9 pr-8 py-2 text-sm shadow-sm outline-none transition-all`}
         />
         {searchQuery && (
@@ -169,6 +261,7 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, braindumpData
                 {searchQuery ? "No matches found." : "No items in this section."}
              </motion.div>
           )}
+          
           {displayItems.map((item) => (
             <motion.div
               key={item.id}
@@ -176,44 +269,62 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, braindumpData
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              draggable="true"
+              draggable={item.type !== 'manuscript'}
               onDragStart={(e) => handleDragStart(e as any, item.fullText)}
-              className="group relative bg-white dark:bg-zinc-800 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm hover:shadow-md hover:border-indigo-400/50 dark:hover:border-indigo-500/50 cursor-grab active:cursor-grabbing transition-all select-none"
+              onClick={() => {
+                  if (item.type === 'manuscript') {
+                      onNavigate(item.id);
+                  } else {
+                      onInsert(item.fullText);
+                  }
+              }}
+              className={`group relative bg-white dark:bg-zinc-800 p-3 rounded-lg border border-zinc-200 dark:border-zinc-700 shadow-sm hover:shadow-md hover:border-indigo-400/50 dark:hover:border-indigo-500/50 cursor-pointer transition-all select-none ${item.type === 'manuscript' ? 'border-l-4 border-l-zinc-300 dark:border-l-zinc-600' : ''}`}
             >
                <div className="flex items-center justify-between mb-1.5">
-                   {/* Source Badge (Only visible during search or mixed view contexts) */}
-                   <div className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 px-1.5 py-0.5 rounded-md ${
-                       item.type === 'braindump' ? 'bg-teal-50 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400' :
-                       item.type === 'characters' ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400' :
-                       'bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400'
-                   }`}>
+                   <div className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 px-1.5 py-0.5 rounded-md ${getColorClass(item.type)}`}>
                        {getIcon(item.type)}
                        <span>{item.type}</span>
                    </div>
                </div>
 
                {item.title && (
-                 <div className="font-bold text-xs text-zinc-800 dark:text-zinc-200 mb-1 leading-snug">{item.title}</div>
+                 <div className="font-bold text-xs text-zinc-800 dark:text-zinc-200 mb-1 leading-snug">
+                     <HighlightedText text={item.title} highlight={searchQuery} />
+                 </div>
                )}
-               <div className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-3 font-serif leading-relaxed">
-                 {item.content}
+               
+               {/* Show Snippets if searching, else full content preview */}
+               <div className="text-xs text-zinc-500 dark:text-zinc-400 font-serif leading-relaxed">
+                   {searchQuery && (item as any).snippets && (item as any).snippets.length > 0 ? (
+                       (item as any).snippets.map((snip: any, idx: number) => (
+                           <div key={idx} className="mb-1 p-1.5 bg-zinc-50 dark:bg-zinc-900/50 rounded border border-zinc-100 dark:border-zinc-800">
+                               <HighlightedText text={snip.preview} highlight={searchQuery} />
+                           </div>
+                       ))
+                   ) : (
+                       <div className="line-clamp-3">{item.content}</div>
+                   )}
                </div>
                
-               {/* Hover Actions */}
+               {/* Actions */}
                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                   <button 
-                     onClick={() => onInsert(item.fullText)}
-                     className="p-1 bg-zinc-100 dark:bg-zinc-700 text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded shadow-sm"
-                     title="Insert into board"
-                   >
-                     <Plus size={12} />
-                   </button>
+                   {item.type === 'manuscript' ? (
+                       <div className="p-1 bg-zinc-100 dark:bg-zinc-700 text-zinc-500 rounded shadow-sm">
+                           <ArrowUpRight size={12} />
+                       </div>
+                   ) : (
+                       <div className="p-1 bg-zinc-100 dark:bg-zinc-700 text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 rounded shadow-sm">
+                           <Plus size={12} />
+                       </div>
+                   )}
                </div>
-               
-               {/* Drag Handle Visual */}
-               <div className="absolute bottom-2 right-2 text-zinc-200 dark:text-zinc-700 group-hover:text-zinc-400 transition-colors pointer-events-none">
-                 <GripVertical size={12} />
-               </div>
+
+               {/* Grip (Not for manuscript) */}
+               {item.type !== 'manuscript' && (
+                    <div className="absolute bottom-2 right-2 text-zinc-200 dark:text-zinc-700 group-hover:text-zinc-400 transition-colors pointer-events-none">
+                        <GripVertical size={12} />
+                    </div>
+               )}
             </motion.div>
           ))}
         </AnimatePresence>

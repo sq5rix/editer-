@@ -265,6 +265,14 @@ const App: React.FC = () => {
       }
   };
 
+  const handleSearchNavigate = (blockId: string) => {
+      // Must take snapshot before switching to edit mode so "Original" pane has content
+      takeSnapshot();
+      setMode('edit');
+      setActiveBlockId(blockId);
+      setContextBlockId(blockId);
+  };
+
   // -- AI Helpers --
   const handleGeminiAction = async (action: 'synonym' | 'expand' | 'grammar') => {
     if (!selectedText) return;
@@ -475,6 +483,8 @@ const App: React.FC = () => {
                    {/* Pass loaded data into ShuffleSidebar */}
                    <ShuffleSidebar 
                       onInsert={(text) => addBlock(activeBlockId || blocks[blocks.length-1]?.id || uuidv4(), text)} 
+                      onNavigate={handleSearchNavigate}
+                      blocks={blocks}
                       braindumpData={braindumpItems}
                       characterData={characters}
                       researchData={researchThreads}
