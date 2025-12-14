@@ -30,7 +30,7 @@ const App: React.FC = () => {
   // -- Hooks --
   const { books, currentBookId, setCurrentBookId, handleCreateBook, handleDeleteBook, handleRenameBook } = useBookManager(user);
   const { 
-      blocks, setBlocks, history, redoStack, undo, redo, updateBlock, addBlock, removeBlock, clearAll, importText, saveHistory,
+      blocks, setBlocks, history, redoStack, undo, redo, updateBlock, addBlock, removeBlock, clearAll, importText, pasteText, saveHistory,
       isAutoCorrecting, performGrammarCheck, originalSnapshot, takeSnapshot, revertToSnapshot
   } = useManuscript(user, currentBookId);
 
@@ -79,8 +79,6 @@ const App: React.FC = () => {
         } catch (e) { console.error(e); }
       };
       loadAux();
-      // Listen for local storage changes if needed, but the views update these keys
-      // We can also poll or rely on the fact that switching modes triggers re-renders
       const interval = setInterval(loadAux, 2000);
       return () => clearInterval(interval);
   }, [currentBookId]);
@@ -140,13 +138,13 @@ const App: React.FC = () => {
     setSelectionRect(null);
   };
 
+  // Grammar check is now instant, no confirmation (user can revert)
   const handleAutoCorrect = () => {
-      if (!window.confirm("Check Grammar and Auto-correct entire document? Changes will be marked in blue.")) return;
       performGrammarCheck();
   };
 
   const handleClearText = () => {
-      if (!window.confirm("Are you sure you want to delete the entire manuscript? This cannot be undone easily.")) return;
+      if (!window.confirm("Are you sure you want to delete the entire manuscript?")) return;
       const newId = clearAll();
       setActiveBlockId(newId);
       if (mode === 'shuffle') setMode('write');
@@ -258,6 +256,15 @@ const App: React.FC = () => {
       else if (blocks.length > 1) setActiveBlockId(blocks[index + 1].id);
       else setActiveBlockId(null);
       removeBlock(id);
+  };
+  
+  // -- Critical Paste Handler for Splitting Blocks --
+  const handleBlockPasteWrapper = (id: string, e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      const text = e.clipboardData.getData('text');
+      if (text.includes('\n') || text.length > 150) {
+          e.preventDefault();
+          pasteText(id, text);
+      }
   };
 
   // -- AI Helpers --
@@ -423,6 +430,7 @@ const App: React.FC = () => {
                                     block={block}
                                     isActive={activeBlockId === block.id}
                                     onChange={handleBlockChangeWrapper}
+                                    onPaste={handleBlockPasteWrapper}
                                     onFocus={(id) => { setActiveBlockId(id); setContextBlockId(id); }}
                                     onAnalyze={handleBlockAnalysis}
                                     onRewrite={handleBlockRewrite}
@@ -479,6 +487,7 @@ const App: React.FC = () => {
                             isActive={false}
                             mode={mode}
                             onChange={handleBlockChangeWrapper}
+                            onPaste={handleBlockPasteWrapper}
                             onFocus={() => {}}
                             onAnalyze={() => {}}
                             typography={typography}
@@ -498,6 +507,7 @@ const App: React.FC = () => {
                     isActive={activeBlockId === block.id}
                     mode={mode}
                     onChange={handleBlockChangeWrapper}
+                    onPaste={handleBlockPasteWrapper}
                     onFocus={setActiveBlockId}
                     onAnalyze={handleBlockAnalysis}
                     onRewrite={handleBlockRewrite}

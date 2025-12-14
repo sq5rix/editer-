@@ -60,8 +60,8 @@ const TopBar: React.FC<TopBarProps> = ({
     const isAuxMode = ['research', 'braindump', 'characters', 'analysis', 'metadata'].includes(mode);
 
     return (
-        <header className="fixed top-0 left-0 w-full z-30 bg-gradient-to-b from-paper via-paper/90 to-transparent dark:from-zinc-950 dark:via-zinc-950/90 h-24 pointer-events-none ui-no-select flex items-center">
-            <div className="w-full max-w-7xl mx-auto px-4 md:px-6 flex justify-between items-center pointer-events-auto">
+        <header className="fixed top-0 left-0 w-full z-50 bg-gradient-to-b from-paper via-paper/95 to-transparent dark:from-zinc-950 dark:via-zinc-950/95 h-24 flex items-center shadow-sm border-b border-transparent transition-all">
+            <div className="w-full max-w-7xl mx-auto px-4 md:px-6 flex justify-between items-center">
                 
                 {/* Left: Brand & Modes */}
                 <div className="flex items-center gap-2 md:gap-4 flex-shrink min-w-0">
@@ -132,14 +132,10 @@ const TopBar: React.FC<TopBarProps> = ({
                         </div>
                     )}
 
-                    {/* Trash Button - Reliable Click Handler */}
+                    {/* Trash Button - Fixed Click Handler */}
                     {!isAuxMode && mode !== 'edit' && (
                         <button 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                console.log("Trash clicked");
-                                onClear();
-                            }} 
+                            onClick={onClear} 
                             className="p-2 rounded-full text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all cursor-pointer" 
                             title="Clear Text"
                         >

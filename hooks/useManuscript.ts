@@ -133,6 +133,29 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
       }
   };
 
+  const pasteText = (targetId: string, text: string) => {
+      saveHistory();
+      const newBlocksData = parseTextToBlocks(text);
+      if (newBlocksData.length === 0) return;
+
+      setBlocks(prev => {
+        const index = prev.findIndex(b => b.id === targetId);
+        if (index === -1) return prev;
+
+        const currentBlock = prev[index];
+        const newBlockList = [...prev];
+
+        if (currentBlock.content.trim() === '') {
+           // Replace empty block
+           newBlockList.splice(index, 1, ...newBlocksData);
+        } else {
+           // Insert after current block
+           newBlockList.splice(index + 1, 0, ...newBlocksData);
+        }
+        return newBlockList;
+      });
+  };
+
   const takeSnapshot = () => {
       setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
   };
@@ -148,20 +171,24 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
       if (isAutoCorrecting) return;
       setIsAutoCorrecting(true);
       
-      // Snapshot first if not already matching (to ensure diffs work)
-      takeSnapshot();
-
-      // Yield
-      await new Promise(resolve => setTimeout(resolve, 50));
-
-      const blocksToProcess = [...blocks];
+      // Safety timeout to unlock if something hangs
+      const safetyTimer = setTimeout(() => setIsAutoCorrecting(false), 20000);
       
       try {
+          // Snapshot for diffing
+          setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
+          
+          // Force a tiny wait to let UI render the spinner
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+          const blocksToProcess = [...blocks]; // Copy state at start of process
+
           for (let i = 0; i < blocksToProcess.length; i++) {
               const block = blocksToProcess[i];
-              
-              // Skip if component unmounted or logic changed (simplified check)
-              if (block.type === 'hr' || block.content.trim().length < 3) continue;
+
+              // Skip headers, empty blocks. 
+              // UPDATED: Relaxed threshold from 5 to 2 chars to fix "not starting" issue
+              if (block.type === 'hr' || block.type === 'h1' || block.content.trim().length < 2) continue;
 
               try {
                   const corrected = await GeminiService.autoCorrect(block.content);
@@ -177,7 +204,7 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
                           return newBlocks;
                       });
                   }
-                  // Small delay to allow UI updates
+                  // Small delay to prevent rate limits and allow UI updates
                   await new Promise(resolve => setTimeout(resolve, 50));
               } catch (e) {
                   console.error(`Error fixing block ${block.id}`, e);
@@ -186,6 +213,7 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
       } catch (err) {
           console.error("Global grammar error", err);
       } finally {
+          clearTimeout(safetyTimer);
           setIsAutoCorrecting(false);
       }
   };
@@ -202,6 +230,7 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
       removeBlock,
       clearAll,
       importText,
+      pasteText,
       saveHistory,
       
       isAutoCorrecting,
