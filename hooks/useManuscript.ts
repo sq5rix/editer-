@@ -9,6 +9,7 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
   const [blocks, setBlocks] = useState<Block[]>([{ id: uuidv4(), type: 'p', content: '' }]);
   const [originalSnapshot, setOriginalSnapshot] = useState<Block[]>([]);
   const [isAutoCorrecting, setIsAutoCorrecting] = useState(false);
+  const [processingBlockId, setProcessingBlockId] = useState<string | null>(null);
   
   // History
   const [history, setHistory] = useState<Block[][]>([]);
@@ -171,24 +172,22 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
       if (isAutoCorrecting) return;
       setIsAutoCorrecting(true);
       
-      // Safety timeout to unlock if something hangs
       const safetyTimer = setTimeout(() => setIsAutoCorrecting(false), 20000);
       
       try {
           // Snapshot for diffing
           setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
           
-          // Force a tiny wait to let UI render the spinner
           await new Promise(resolve => setTimeout(resolve, 100));
 
-          const blocksToProcess = [...blocks]; // Copy state at start of process
+          const blocksToProcess = [...blocks]; 
 
           for (let i = 0; i < blocksToProcess.length; i++) {
               const block = blocksToProcess[i];
 
-              // Skip headers, empty blocks. 
-              // UPDATED: Relaxed threshold from 5 to 2 chars to fix "not starting" issue
               if (block.type === 'hr' || block.type === 'h1' || block.content.trim().length < 2) continue;
+
+              setProcessingBlockId(block.id); // Highlight yellow
 
               try {
                   const corrected = await GeminiService.autoCorrect(block.content);
@@ -197,15 +196,14 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
                       setBlocks(prev => {
                           const newBlocks = [...prev];
                           const idx = newBlocks.findIndex(b => b.id === block.id);
-                          // Only update if block still exists
                           if (idx !== -1) {
                               newBlocks[idx] = { ...newBlocks[idx], content: corrected };
                           }
                           return newBlocks;
                       });
                   }
-                  // Small delay to prevent rate limits and allow UI updates
-                  await new Promise(resolve => setTimeout(resolve, 50));
+                  // Small delay to let user see the yellow processing state
+                  await new Promise(resolve => setTimeout(resolve, 300));
               } catch (e) {
                   console.error(`Error fixing block ${block.id}`, e);
               }
@@ -213,6 +211,7 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
       } catch (err) {
           console.error("Global grammar error", err);
       } finally {
+          setProcessingBlockId(null);
           clearTimeout(safetyTimer);
           setIsAutoCorrecting(false);
       }
@@ -234,6 +233,7 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
       saveHistory,
       
       isAutoCorrecting,
+      processingBlockId,
       performGrammarCheck,
       originalSnapshot,
       takeSnapshot,

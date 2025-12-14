@@ -31,7 +31,7 @@ const App: React.FC = () => {
   const { books, currentBookId, setCurrentBookId, handleCreateBook, handleDeleteBook, handleRenameBook } = useBookManager(user);
   const { 
       blocks, setBlocks, history, redoStack, undo, redo, updateBlock, addBlock, removeBlock, clearAll, importText, pasteText, saveHistory,
-      isAutoCorrecting, performGrammarCheck, originalSnapshot, takeSnapshot, revertToSnapshot
+      isAutoCorrecting, processingBlockId, performGrammarCheck, originalSnapshot, takeSnapshot, revertToSnapshot
   } = useManuscript(user, currentBookId);
 
   // -- UI State --
@@ -138,7 +138,6 @@ const App: React.FC = () => {
     setSelectionRect(null);
   };
 
-  // Grammar check is now instant, no confirmation (user can revert)
   const handleAutoCorrect = () => {
       performGrammarCheck();
   };
@@ -258,7 +257,6 @@ const App: React.FC = () => {
       removeBlock(id);
   };
   
-  // -- Critical Paste Handler for Splitting Blocks --
   const handleBlockPasteWrapper = (id: string, e: React.ClipboardEvent<HTMLTextAreaElement>) => {
       const text = e.clipboardData.getData('text');
       if (text.includes('\n') || text.length > 150) {
@@ -423,7 +421,9 @@ const App: React.FC = () => {
                    <div ref={leftPaneRef} onScroll={() => handleScrollSync('left')} className="flex-1 overflow-y-auto pl-4 pr-4 border-r border-zinc-200 dark:border-zinc-800">
                         {blocks.map((block) => {
                              const snapshotBlock = originalSnapshot.find(b => b.id === block.id);
+                             // Dirty is calculated based on snapshot content diff
                              const isDirty = mode === 'edit' && (!snapshotBlock || snapshotBlock.content !== block.content);
+                             
                              return (
                                 <EditorBlock
                                     key={`${block.id}-edit`}
@@ -440,6 +440,8 @@ const App: React.FC = () => {
                                     onRemove={handleRemoveBlockWrapper}
                                     onEnter={handleBlockEnterWrapper}
                                     isDirty={isDirty}
+                                    isProcessing={processingBlockId === block.id}
+                                    originalContent={snapshotBlock?.content || ""}
                                 />
                              );
                         })}

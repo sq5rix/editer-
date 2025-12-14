@@ -42,3 +42,53 @@ export const shuffleArray = <T,>(array: T[]): T[] => {
   }
   return newArray;
 };
+
+// Simple Word Diff for visual feedback
+// Returns segments of text that are either 'unchanged' or 'changed' (new)
+export const simpleWordDiff = (oldText: string, newText: string): { text: string; type: 'same' | 'added' }[] => {
+    if (!oldText) return [{ text: newText, type: 'added' }];
+    if (!newText) return [];
+    if (oldText === newText) return [{ text: newText, type: 'same' }];
+
+    const oldWords = oldText.split(/\b/); // Split keeping delimiters to preserve punctuation roughly
+    const newWords = newText.split(/\b/);
+    
+    // Very naive alignment just for visual flair "underscoring"
+    // Ideally we use Myers diff, but this is a heuristic for "Grammar Correction" where text is mostly same.
+    
+    const result: { text: string; type: 'same' | 'added' }[] = [];
+    let iOld = 0;
+    
+    for (let iNew = 0; iNew < newWords.length; iNew++) {
+        const word = newWords[iNew];
+        
+        // Skip whitespace in matching logic but keep in output
+        if (/^\s+$/.test(word)) {
+            result.push({ text: word, type: 'same' }); 
+            // Try to advance old pointer if it matches whitespace
+            if (iOld < oldWords.length && /^\s+$/.test(oldWords[iOld])) {
+                iOld++;
+            }
+            continue;
+        }
+
+        // Look ahead in old text to find this word
+        let found = false;
+        // Search window of 10 tokens
+        for (let offset = 0; offset < 10; offset++) {
+            if (iOld + offset < oldWords.length && oldWords[iOld + offset] === word) {
+                iOld += offset + 1; // Advance past this match
+                found = true;
+                break;
+            }
+        }
+
+        if (found) {
+            result.push({ text: word, type: 'same' });
+        } else {
+            result.push({ text: word, type: 'added' });
+        }
+    }
+    
+    return result;
+};
