@@ -40,7 +40,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   readOnly = false,
   onRemove,
   onEnter,
-  isDirty = false
+  isDirty
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -125,7 +125,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   const commonClasses = `w-full bg-transparent outline-none border-none transition-all duration-300 ${getFontClass()} ${
     block.type === 'h1' 
       ? 'font-bold mb-6 mt-8 text-black dark:text-white' 
-      : 'text-zinc-900 dark:text-white'
+      : isDirty ? 'text-blue-900 dark:text-blue-100' : 'text-zinc-900 dark:text-white'
   }`;
 
   // --- CLICK / TAP HANDLER ---
@@ -267,7 +267,10 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   }
   
   // --- TEXT BLOCK RENDER ---
-  
+  const dirtyClass = isDirty 
+     ? 'bg-blue-50/50 dark:bg-blue-900/20 border-l-4 border-blue-500 pl-4 pr-2 py-2 rounded-r-lg -ml-4' 
+     : '';
+
   return (
     <motion.div
       layoutId={!readOnly ? block.id : `${block.id}-readonly`}
@@ -278,7 +281,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
           ? 'translate-x-0' 
           : mode === 'edit' && !readOnly 
             // Edit mode logic
-            ? `${isActive ? 'bg-zinc-50 dark:bg-zinc-900/30' : 'hover:bg-zinc-50 dark:hover:bg-zinc-900/30'} rounded-lg -ml-4 pl-4 pr-2 py-2` 
+            ? `${isActive ? 'bg-zinc-50 dark:bg-zinc-900/30 rounded-lg -ml-4 pl-4 pr-2 py-2' : dirtyClass || 'hover:bg-zinc-50 dark:hover:bg-zinc-900/30 rounded-lg -ml-4 pl-4 pr-2 py-2'}` 
             : 'hover:opacity-100'
       }`}
       style={{ 
@@ -413,10 +416,9 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
             }
           }}
           style={textStyle}
-          className={`${commonClasses} resize-none ${isRewriting ? 'opacity-50 animate-pulse' : ''} ${isDirty ? '!border-b-2 !border-blue-300/50 dark:!border-blue-400/40 border-dashed pb-1' : ''}`}
+          className={`${commonClasses} resize-none ${isRewriting ? 'opacity-50 animate-pulse' : ''}`}
           placeholder={block.type === 'h1' ? "Chapter Title..." : "Start writing..."}
           disabled={isRewriting}
-          title={isDirty ? "Modified (Pending Approval)" : undefined}
         />
       ) : (
         /* Render as a DIV in ReadOnly or old Edit Mode */

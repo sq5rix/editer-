@@ -120,7 +120,6 @@ const App: React.FC = () => {
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [loading, setLoading] = useState(false);
   const [isAutoCorrecting, setIsAutoCorrecting] = useState(false);
-  const [correctionProgress, setCorrectionProgress] = useState<{ current: number; total: number } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   
   // Research & Braindump & Metadata State
@@ -245,49 +244,47 @@ const App: React.FC = () => {
   };
 
   const handleAutoCorrect = async () => {
-      if (!window.confirm("This will process the entire document paragraph-by-paragraph. Continue?")) return;
+      if (!window.confirm("Auto-correct entire document? Changes will be marked in blue.")) return;
       
       saveHistory();
       setIsAutoCorrecting(true);
       
-      try {
-          // Identify indices of blocks that are suitable for correction
-          const targets = blocks
-            .map((b, idx) => ({ ...b, idx }))
-            .filter(b => b.type === 'p' && b.content.trim().length > 5);
-
-          if (targets.length === 0) {
-              alert("No suitable text found.");
-              setIsAutoCorrecting(false);
-              return;
-          }
-
-          setCorrectionProgress({ current: 0, total: targets.length });
-
-          // We need a mutable copy of blocks to update state incrementally
-          let currentBlocks = [...blocks];
-
-          for (let i = 0; i < targets.length; i++) {
-              const { content, idx } = targets[i];
-              setCorrectionProgress({ current: i + 1, total: targets.length });
-
-              // AI Call - Process paragraph by paragraph
-              const corrected = await GeminiService.autoCorrect(content);
-              
-              // Update local array clone
-              currentBlocks[idx] = { ...currentBlocks[idx], content: corrected };
-
-              // Update State to reflect progress in the UI
-              setBlocks([...currentBlocks]);
-          }
-
-      } catch (e) {
-          console.error("Auto-correct failed", e);
-          alert("An error occurred during auto-correction.");
-      } finally {
-          setIsAutoCorrecting(false);
-          setCorrectionProgress(null);
+      // Ensure we have a snapshot for comparison (should be set on mode switch, but safety first)
+      if (originalSnapshot.length === 0) {
+          setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
       }
+
+      // Iterate through a copy of the blocks to avoid state closure issues during async
+      const blocksToProcess = [...blocks];
+
+      for (let i = 0; i < blocksToProcess.length; i++) {
+          const block = blocksToProcess[i];
+          
+          // Skip HRs or empty/short blocks to save tokens and time
+          if (block.type === 'hr' || block.content.trim().length < 2) continue;
+
+          try {
+              // Call AI
+              const correctedText = await GeminiService.autoCorrect(block.content);
+              
+              // If text changed, update state immediately to show progress
+              if (correctedText && correctedText !== block.content) {
+                  setBlocks(prev => {
+                      const newBlocks = [...prev];
+                      // Find index by ID in case array shifted (though unlikely in this loop without user interaction)
+                      const idx = newBlocks.findIndex(b => b.id === block.id);
+                      if (idx !== -1) {
+                          newBlocks[idx] = { ...newBlocks[idx], content: correctedText };
+                      }
+                      return newBlocks;
+                  });
+              }
+          } catch (err) {
+              console.error(`Error correcting block ${block.id}`, err);
+          }
+      }
+
+      setIsAutoCorrecting(false);
   };
 
   // -- Scroll Sync Logic (Edit Mode) --
@@ -741,34 +738,6 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* Auto-Correct Blocking Overlay */}
-      {isAutoCorrecting && (
-          <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm cursor-wait">
-             <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 border border-zinc-200 dark:border-zinc-700 w-80">
-                <Loader2 className="animate-spin text-indigo-500" size={40} />
-                <div className="text-center w-full">
-                    <h3 className="font-bold text-zinc-800 dark:text-zinc-100 mb-1">Polishing Manuscript</h3>
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                        {correctionProgress 
-                            ? `Paragraph ${correctionProgress.current} of ${correctionProgress.total}` 
-                            : "Initializing..."}
-                    </p>
-                </div>
-                {/* Progress Bar */}
-                {correctionProgress && correctionProgress.total > 0 && (
-                    <div className="w-full h-2 bg-zinc-100 dark:bg-zinc-700 rounded-full overflow-hidden mt-1">
-                        <motion.div 
-                            className="h-full bg-indigo-500"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${(correctionProgress.current / correctionProgress.total) * 100}%` }}
-                            transition={{ ease: "linear" }}
-                        />
-                    </div>
-                )}
-             </div>
-          </div>
-      )}
-
       {/* Header */}
       <header className="fixed top-0 left-0 w-full z-30 bg-gradient-to-b from-paper via-paper/90 to-transparent dark:from-zinc-950 dark:via-zinc-950/90 h-24 pointer-events-none ui-no-select flex items-center">
         <div className="w-full max-w-7xl mx-auto px-4 md:px-6 flex justify-between items-center pointer-events-auto">
@@ -820,7 +789,7 @@ const App: React.FC = () => {
                         <button 
                             onClick={handleAutoCorrect} 
                             disabled={isAutoCorrecting}
-                            className={`flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-400 disabled:cursor-wait text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap`}
+                            className={`flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-400 disabled:cursor-wait text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap`}
                             title="Auto Correct"
                         >
                             {isAutoCorrecting ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />} 
