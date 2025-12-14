@@ -1,13 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather, Book, ArrowRightLeft, ThumbsUp, ThumbsDown, Wand2, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Loader2, ArrowRightLeft } from 'lucide-react';
 import { motion, Reorder, AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
-import { Block, Suggestion, Theme, TypographySettings, Mode, User as UserType, BookEntry } from './types';
-import { parseTextToBlocks, countWords } from './utils';
+import { Theme, TypographySettings, Mode, User as UserType, Suggestion } from './types';
+import { countWords } from './utils';
 import * as GeminiService from './services/geminiService';
 import * as FirebaseService from './services/firebase';
 
+import { useBookManager } from './hooks/useBookManager';
+import { useManuscript } from './hooks/useManuscript';
+
+import TopBar from './components/TopBar';
 import EditorBlock from './components/EditorBlock';
 import FloatingMenu from './components/FloatingMenu';
 import Sidebar from './components/Sidebar';
@@ -22,95 +26,15 @@ import ShuffleSidebar from './components/ShuffleSidebar';
 const App: React.FC = () => {
   // -- Auth State --
   const [user, setUser] = useState<(UserType & { uid?: string }) | null>(null);
-
-  // -- Book Management State --
-  const [books, setBooks] = useState<BookEntry[]>(() => {
-    try {
-        const saved = localStorage.getItem('inkflow_books_index');
-        if (saved) return JSON.parse(saved);
-        return [{ id: 'default', title: 'Untitled Draft', createdAt: Date.now(), lastModified: Date.now() }];
-    } catch {
-        return [{ id: 'default', title: 'Untitled Draft', createdAt: Date.now(), lastModified: Date.now() }];
-    }
-  });
   
-  const [currentBookId, setCurrentBookId] = useState<string>(() => {
-     return localStorage.getItem('inkflow_active_book_id') || 'default';
-  });
+  // -- Hooks --
+  const { books, currentBookId, setCurrentBookId, handleCreateBook, handleDeleteBook, handleRenameBook } = useBookManager(user);
+  const { 
+      blocks, setBlocks, history, redoStack, undo, redo, updateBlock, addBlock, removeBlock, clearAll, importText, saveHistory,
+      isAutoCorrecting, performGrammarCheck, originalSnapshot, takeSnapshot, revertToSnapshot
+  } = useManuscript(user, currentBookId);
 
-  // Ensure current book exists in list
-  useEffect(() => {
-     if (!books.find(b => b.id === currentBookId)) {
-         setCurrentBookId(books[0]?.id || 'default');
-     }
-     localStorage.setItem('inkflow_active_book_id', currentBookId);
-  }, [books, currentBookId]);
-
-  // Save Book Index
-  useEffect(() => {
-      localStorage.setItem('inkflow_books_index', JSON.stringify(books));
-      if (user?.uid) {
-          FirebaseService.saveData(user.uid, 'settings', 'books_index', { books });
-      }
-  }, [books, user]);
-
-  // -- Manuscript State (Specific to Current Book) --
-  const [blocks, setBlocks] = useState<Block[]>([{ id: uuidv4(), type: 'p', content: '' }]);
-  
-  // Load Manuscript when Book ID Changes
-  useEffect(() => {
-    const loadManuscript = async () => {
-        // 1. Try Cloud if logged in
-        if (user?.uid) {
-             const data = await FirebaseService.loadData(user.uid, 'manuscript', currentBookId);
-             if (data && data.blocks) {
-                 setBlocks(data.blocks);
-                 return;
-             }
-        }
-        
-        // 2. Fallback to Local
-        const localKey = `inkflow_manuscript_${currentBookId}`;
-        const saved = localStorage.getItem(localKey);
-        
-        // Migration check: if new book (default) but empty, and old legacy key exists, import it
-        if (!saved && currentBookId === 'default' && localStorage.getItem('inkflow_manuscript')) {
-             const legacy = localStorage.getItem('inkflow_manuscript');
-             if (legacy) {
-                 setBlocks(JSON.parse(legacy));
-                 return;
-             }
-        }
-
-        if (saved) {
-            setBlocks(JSON.parse(saved));
-        } else {
-            setBlocks([{ id: uuidv4(), type: 'p', content: '' }]);
-        }
-    };
-    loadManuscript();
-  }, [currentBookId, user]);
-
-  // Save Manuscript
-  useEffect(() => {
-      if (!currentBookId) return;
-      
-      const localKey = `inkflow_manuscript_${currentBookId}`;
-      localStorage.setItem(localKey, JSON.stringify(blocks));
-
-      if (user?.uid) {
-        const timer = setTimeout(() => {
-            FirebaseService.saveData(user.uid!, 'manuscript', currentBookId, { blocks });
-            // Update last modified of book
-            setBooks(prev => prev.map(b => b.id === currentBookId ? { ...b, lastModified: Date.now() } : b));
-        }, 2000);
-        return () => clearTimeout(timer);
-      }
-  }, [blocks, user, currentBookId]);
-
-
-  const [originalSnapshot, setOriginalSnapshot] = useState<Block[]>([]); 
-
+  // -- UI State --
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [selectionRect, setSelectionRect] = useState<{ top: number; left: number } | null>(null);
   const [selectedText, setSelectedText] = useState<string>("");
@@ -119,19 +43,10 @@ const App: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isAutoCorrecting, setIsAutoCorrecting] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  
-  // Research & Braindump & Metadata State
   const [auxContent, setAuxContent] = useState(""); 
   const [globalCopySuccess, setGlobalCopySuccess] = useState(false);
-  
-  // Undo/Redo History
-  const [history, setHistory] = useState<Block[][]>([]);
-  const [redoStack, setRedoStack] = useState<Block[][]>([]);
-
-  // Context Menu State
   const [menuMode, setMenuMode] = useState<'selection' | 'block'>('selection');
   const [contextBlockId, setContextBlockId] = useState<string | null>(null);
   
@@ -147,9 +62,7 @@ const App: React.FC = () => {
     contrast: 0.95
   });
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // -- Auth Logic --
+  // -- Auth Listener --
   useEffect(() => {
     const unsubscribe = FirebaseService.subscribeToAuth((firebaseUser) => {
         if (firebaseUser) {
@@ -159,12 +72,6 @@ const App: React.FC = () => {
                 picture: firebaseUser.photoURL || '',
                 uid: firebaseUser.uid
             });
-            // Load Books Index
-            FirebaseService.loadData(firebaseUser.uid, 'settings', 'books_index').then(data => {
-                if (data && data.books) {
-                    setBooks(data.books);
-                }
-            });
         } else {
             setUser(null);
         }
@@ -172,17 +79,12 @@ const App: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  const handleError = (msg: string) => {
-    setErrorMessage(msg);
-    setTimeout(() => setErrorMessage(null), 4000);
-  };
-
   const handleLogin = async () => {
       try {
           await FirebaseService.loginWithGoogle();
           setSettingsOpen(false);
       } catch (e) {
-          handleError("Login failed. Please try again.");
+          alert("Login failed.");
       }
   };
 
@@ -191,35 +93,10 @@ const App: React.FC = () => {
       setUser(null);
   };
 
-  // -- Book Management Handlers --
-  const handleCreateBook = () => {
-      const newBook: BookEntry = {
-          id: uuidv4(),
-          title: "Untitled Draft",
-          createdAt: Date.now(),
-          lastModified: Date.now()
-      };
-      setBooks(prev => [...prev, newBook]);
-      setCurrentBookId(newBook.id);
-  };
-
-  const handleDeleteBook = (id: string) => {
-      if (books.length <= 1) return; 
-      const newBooks = books.filter(b => b.id !== id);
-      setBooks(newBooks);
-      if (currentBookId === id) setCurrentBookId(newBooks[0].id);
-  };
-
-  const handleRenameBook = (id: string, newTitle: string) => {
-      setBooks(prev => prev.map(b => b.id === id ? { ...b, title: newTitle } : b));
-  };
-
-
   // -- Theme Handling --
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
-    
     if (theme === 'system') {
       const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       root.classList.add(systemTheme);
@@ -228,135 +105,62 @@ const App: React.FC = () => {
     }
   }, [theme]);
 
-  // -- Mode Switching Logic --
+  // -- Event Handlers --
+
   const handleModeSwitch = (newMode: Mode) => {
     if (newMode === 'edit') {
-       // Take a snapshot when entering edit mode, if we haven't already
-       if (originalSnapshot.length === 0) {
-           setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
-       }
+       takeSnapshot();
        setSelectionRect(null); 
     }
     setMode(newMode);
     setSelectionRect(null);
   };
 
-  const handleApproveChanges = () => {
-    setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
+  const handleAutoCorrect = () => {
+      if (!window.confirm("Check Grammar and Auto-correct entire document? Changes will be marked in blue.")) return;
+      performGrammarCheck();
   };
 
-  const handleRevertChanges = () => {
-      if (window.confirm("Discard all changes made in the Live Editor?")) {
-          setBlocks(JSON.parse(JSON.stringify(originalSnapshot)));
-      }
+  const handleClearText = () => {
+      if (!window.confirm("Are you sure you want to delete the entire manuscript? This cannot be undone easily.")) return;
+      const newId = clearAll();
+      setActiveBlockId(newId);
+      if (mode === 'shuffle') setMode('write');
   };
 
-  const handleAutoCorrect = async () => {
-      if (!window.confirm("Auto-correct entire document? Changes will be marked in blue.")) return;
-      
-      saveHistory();
-      setIsAutoCorrecting(true);
-
-      // Force a render cycle to show spinner
-      await new Promise(resolve => setTimeout(resolve, 50));
-
-      // 1. Snapshot CURRENT state so we can see diffs against it.
-      setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
-      
-      const blocksQueue = [...blocks];
-      let failureCount = 0;
-
-      for (let i = 0; i < blocksQueue.length; i++) {
-          const block = blocksQueue[i];
-          
-          if (block.type === 'hr' || block.content.trim().length < 3) continue;
-
-          try {
-              // 3. API Call
-              const correctedText = await GeminiService.autoCorrect(block.content);
-              
-              // 4. Update State if Changed
-              if (correctedText && correctedText !== block.content) {
-                  setBlocks(prev => {
-                      const newBlocks = [...prev];
-                      const idx = newBlocks.findIndex(b => b.id === block.id);
-                      if (idx !== -1) {
-                          newBlocks[idx] = { ...newBlocks[idx], content: correctedText };
-                      }
-                      return newBlocks;
-                  });
-              }
-              // Small delay between calls to let UI breathe and not hit rate limits too hard
-              await new Promise(resolve => setTimeout(resolve, 20));
-          } catch (err) {
-              console.error(`Failed to correct block ${block.id}`, err);
-              failureCount++;
-              if (failureCount > 3) {
-                  handleError("Multiple errors occurred. Stopping auto-correct.");
-                  break;
-              }
-          }
-      }
-
-      setIsAutoCorrecting(false);
-  };
-
-  // -- Scroll Sync Logic (Edit Mode) --
-  const handleScrollSync = (source: 'left' | 'right') => {
-    if (mode !== 'edit') return;
-    if (isSyncingScroll.current) return;
-
-    isSyncingScroll.current = true;
-    const left = leftPaneRef.current;
-    const right = rightPaneRef.current;
-
-    if (left && right) {
-        const src = source === 'left' ? left : right;
-        const dest = source === 'left' ? right : left;
-        
-        const percentage = src.scrollTop / (src.scrollHeight - src.clientHeight);
-        
-        if (dest.scrollHeight > dest.clientHeight) {
-            dest.scrollTop = percentage * (dest.scrollHeight - dest.clientHeight);
-        }
+  const handleGlobalCopy = () => {
+    const textToCopy = (mode === 'research' || mode === 'braindump' || mode === 'characters' || mode === 'metadata')
+        ? auxContent 
+        : blocks.map(b => b.type === 'hr' ? '---' : b.content).join('\n\n');
+    
+    if (textToCopy) {
+        navigator.clipboard.writeText(textToCopy);
+        setGlobalCopySuccess(true);
+        setTimeout(() => setGlobalCopySuccess(false), 2000);
     }
-
-    setTimeout(() => {
-        isSyncingScroll.current = false;
-    }, 50);
   };
 
-  // -- Undo/Redo Logic --
-  const saveHistory = useCallback(() => {
-    setHistory(prev => {
-      const newHistory = [...prev, blocks];
-      if (newHistory.length > 20) return newHistory.slice(newHistory.length - 20);
-      return newHistory;
-    });
-    setRedoStack([]); 
-  }, [blocks]);
-
-  const handleUndo = useCallback(() => {
-    if (history.length === 0) return;
-
-    const previousBlocks = history[history.length - 1];
-    const newHistory = history.slice(0, -1);
-
-    setRedoStack(prev => [...prev, blocks]); 
-    setBlocks(previousBlocks);
-    setHistory(newHistory);
-  }, [history, blocks]);
-
-  const handleRedo = useCallback(() => {
-    if (redoStack.length === 0) return;
-
-    const nextBlocks = redoStack[redoStack.length - 1];
-    const newRedo = redoStack.slice(0, -1);
-
-    setHistory(prev => [...prev, blocks]); 
-    setBlocks(nextBlocks);
-    setRedoStack(newRedo);
-  }, [redoStack, blocks]);
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      setLoading(true);
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        const base64Data = base64.split(',')[1];
+        try {
+          const text = await GeminiService.transcribeImage(base64Data);
+          importText(text);
+        } catch (err) {
+          console.error(err);
+          alert('Failed to read image.');
+        } finally {
+          setLoading(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // -- Text Selection Logic --
   useEffect(() => {
@@ -372,7 +176,6 @@ const App: React.FC = () => {
       }
 
       const selection = window.getSelection();
-      
       if (!selection || selection.isCollapsed || selection.toString().trim() === '') {
         setSelectionRect(null);
         setSelectedText("");
@@ -381,7 +184,6 @@ const App: React.FC = () => {
 
       const anchorNode = selection.anchorNode;
       const isEditor = anchorNode?.parentElement?.closest('main');
-
       if (!isEditor) {
           setSelectionRect(null);
           return;
@@ -393,356 +195,136 @@ const App: React.FC = () => {
 
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
-      
       if (rect.width === 0 && rect.height === 0) return;
 
-      setSelectionRect({
-        top: rect.bottom, 
-        left: rect.left + (rect.width / 2)
-      });
+      setSelectionRect({ top: rect.bottom, left: rect.left + (rect.width / 2) });
       setSelectedText(selection.toString());
       setMenuMode('selection');
     };
 
     document.addEventListener('selectionchange', handleSelection);
     window.addEventListener('scroll', handleSelection);
-    
     return () => {
         document.removeEventListener('selectionchange', handleSelection);
         window.removeEventListener('scroll', handleSelection);
     };
   }, [mode, selectionRect, menuMode]);
 
-  // -- Block Management --
-  const handleBlockChange = (id: string, newContent: string) => {
-    // Recognize --- as break
-    if (newContent.trim() === '---') {
-        setBlocks(prev => prev.map(b => b.id === id ? { ...b, type: 'hr', content: '' } : b));
-        return;
-    }
-    setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: newContent } : b));
+  // -- Block Interaction Wrappers --
+  const handleBlockChangeWrapper = (id: string, content: string) => updateBlock(id, content);
+  
+  const handleBlockEnterWrapper = (id: string, cursorPosition: number) => {
+      const block = blocks.find(b => b.id === id);
+      if (!block) return;
+      const textBefore = block.content.slice(0, cursorPosition);
+      const textAfter = block.content.slice(cursorPosition);
+      
+      updateBlock(id, textBefore); // Update current
+      const newId = addBlock(id, textAfter); // Add new after
+      setActiveBlockId(newId);
   };
 
-  const handleBlockEnter = (id: string, cursorPosition: number) => {
-    saveHistory();
-    const newId = uuidv4();
-    
-    setBlocks(prev => {
-        const index = prev.findIndex(b => b.id === id);
-        if (index === -1) return prev;
-        
-        const currentBlock = prev[index];
-        const textBefore = currentBlock.content.slice(0, cursorPosition);
-        const textAfter = currentBlock.content.slice(cursorPosition);
-        
-        const newBlocks = [...prev];
-        // Update current block content to text before cursor
-        newBlocks[index] = { ...currentBlock, content: textBefore };
-        
-        // Insert new block with content after cursor
-        newBlocks.splice(index + 1, 0, {
-            id: newId,
-            type: 'p',
-            content: textAfter
-        });
-        
-        return newBlocks;
-    });
-    
-    setActiveBlockId(newId);
-  };
-
-  const handleRemoveBlock = (id: string) => {
-      saveHistory();
+  const handleRemoveBlockWrapper = (id: string) => {
       const index = blocks.findIndex(b => b.id === id);
-      if (index > 0) {
-          setActiveBlockId(blocks[index - 1].id);
-      } else if (blocks.length > 1) {
-          setActiveBlockId(blocks[index + 1].id);
-      } else {
-          setActiveBlockId(null);
-      }
-      setBlocks(prev => prev.filter(b => b.id !== id));
+      if (index > 0) setActiveBlockId(blocks[index - 1].id);
+      else if (blocks.length > 1) setActiveBlockId(blocks[index + 1].id);
+      else setActiveBlockId(null);
+      removeBlock(id);
   };
 
-  const handleBlockRewrite = async (id: string, prompt: string) => {
-    const block = blocks.find(b => b.id === id);
-    if (!block || block.type === 'hr') return;
-
-    // Set context so we know where to apply the suggestion
-    setContextBlockId(id);
-
-    try {
-        const results = await GeminiService.customRewrite(block.content, prompt);
-        
-        setSuggestion({
-            type: 'custom',
-            originalText: block.content,
-            options: results
-        });
-        setSidebarOpen(true);
-    } catch (e) {
-        console.error("Rewrite failed", e);
-        handleError("Rewrite failed. Please check your connection.");
-    }
-  };
-
-  const handleBlockDoubleTap = (id: string) => {
-    setActiveBlockId(id);
-  };
-
-  const handleBlockPaste = (id: string, e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const text = e.clipboardData.getData('text');
-    
-    if (text.includes('\n') || text.length > 150) {
-      e.preventDefault();
-      saveHistory(); 
-      
-      const newBlocksData = parseTextToBlocks(text);
-      if (newBlocksData.length === 0) return;
-
-      setBlocks(prev => {
-        const index = prev.findIndex(b => b.id === id);
-        if (index === -1) return prev;
-
-        const currentBlock = prev[index];
-        const newBlockList = [...prev];
-
-        if (currentBlock.content.trim() === '') {
-           newBlockList.splice(index, 1, ...newBlocksData);
-        } else {
-           newBlockList.splice(index + 1, 0, ...newBlocksData);
-        }
-        
-        return newBlockList;
-      });
-    }
-  };
-
-  const handleShuffleReorder = (newBlocks: Block[]) => {
-      saveHistory(); 
-      setBlocks(newBlocks);
-  };
-  
-  // -- Shuffle Drop Logic --
-  const handleShuffleDrop = (e: React.DragEvent) => {
-      e.preventDefault();
-      const text = e.dataTransfer.getData('text/plain');
-      if (text) {
-          handleShuffleInsert(text);
-      }
-  };
-  
-  const handleShuffleInsert = (text: string) => {
-      saveHistory();
-      const newBlock: Block = {
-          id: uuidv4(),
-          type: 'p',
-          content: text
-      };
-      setBlocks(prev => [...prev, newBlock]);
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      
-      setLoading(true);
-      reader.onloadend = async () => {
-        const base64 = reader.result as string;
-        const base64Data = base64.split(',')[1];
-        try {
-          saveHistory(); 
-          const text = await GeminiService.transcribeImage(base64Data);
-          const newBlocks = parseTextToBlocks(text);
-          if (blocks.length === 1 && blocks[0].content === '') {
-             setBlocks(newBlocks);
-          } else {
-             setBlocks(prev => [...prev, ...newBlocks]);
-          }
-        } catch (err) {
-          console.error(err);
-          handleError("Failed to read image. Please try again.");
-        } finally {
-          setLoading(false);
-          if (fileInputRef.current) fileInputRef.current.value = '';
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleClearText = () => {
-    if (!window.confirm("Are you sure you want to delete the entire manuscript? This cannot be undone easily.")) return;
-    saveHistory();
-    const newId = uuidv4();
-    setBlocks([{ id: newId, type: 'p', content: '' }]);
-    setActiveBlockId(newId);
-    if (mode === 'shuffle') setMode('write');
-  };
-
-  const handleGlobalCopy = () => {
-    const textToCopy = (mode === 'research' || mode === 'braindump' || mode === 'characters' || mode === 'metadata')
-        ? auxContent 
-        : blocks.map(b => b.type === 'hr' ? '---' : b.content).join('\n\n'); // Include --- in copy
-    
-    if (textToCopy) {
-        navigator.clipboard.writeText(textToCopy);
-        setGlobalCopySuccess(true);
-        setTimeout(() => setGlobalCopySuccess(false), 2000);
-    }
-  };
-
-  // -- Interaction Handlers for Shuffle Mode --
-  const handleShuffleSelect = (id: string) => {
-      setActiveBlockId(id);
-      setMode('write');
-      setSelectionRect(null); 
-  };
-
-  const handleShuffleContextMenu = (id: string, position: { top: number; left: number }) => {
-      setContextBlockId(id);
-      setSelectionRect(position);
-      setMenuMode('block');
-  };
-
-  // -- AI Features --
+  // -- AI Helpers --
   const handleGeminiAction = async (action: 'synonym' | 'expand' | 'grammar') => {
     if (!selectedText) return;
-    
     setLoading(true);
     setSidebarOpen(true);
     setSuggestion(null);
     setSelectionRect(null);
-
     try {
         let results: string[] = [];
         if (action === 'synonym') results = await GeminiService.getSynonyms(selectedText);
         if (action === 'expand') results = await GeminiService.expandText(selectedText);
         if (action === 'grammar') results = await GeminiService.checkGrammar(selectedText);
-
-        setSuggestion({
-            type: action,
-            originalText: selectedText,
-            options: results
-        });
-    } catch (e) {
-        handleError("AI request failed.");
-    } finally {
-        setLoading(false);
-    }
+        setSuggestion({ type: action, originalText: selectedText, options: results });
+    } catch { alert("AI Error"); } 
+    finally { setLoading(false); }
   };
 
   const handleBlockAnalysis = async (blockId: string, type: 'sensory' | 'show-dont-tell' | 'fluency' | 'sense-of-place') => {
     if (!contextBlockId) setContextBlockId(blockId);
-    
     const block = blocks.find(b => b.id === blockId);
     if (!block || block.type === 'hr') return;
-
     setLoading(true);
     setSidebarOpen(true);
     setSuggestion(null);
     setSelectionRect(null);
-
     try {
         const results = await GeminiService.analyzeParagraph(block.content, type);
-        setSuggestion({
-            type: type,
-            originalText: block.content,
-            options: results
-        });
-    } catch (e) {
-        handleError("Analysis failed.");
-    } finally {
-        setLoading(false);
-    }
+        setSuggestion({ type: type, originalText: block.content, options: results });
+    } catch { alert("Analysis Error"); }
+    finally { setLoading(false); }
   };
 
   const handleCustomPrompt = async (prompt: string) => {
     let textToAnalyze = selectedText;
-    
     if (!textToAnalyze && contextBlockId && menuMode === 'block') {
         const block = blocks.find(b => b.id === contextBlockId);
-        if (block && block.type !== 'hr') textToAnalyze = block.content;
+        if (block) textToAnalyze = block.content;
     }
-
     if (!textToAnalyze) return;
-
     setLoading(true);
     setSidebarOpen(true);
     setSuggestion(null);
     setSelectionRect(null);
-
     try {
         const results = await GeminiService.customRewrite(textToAnalyze, prompt);
-        setSuggestion({
-            type: 'expand',
-            originalText: textToAnalyze,
-            options: results
-        });
-    } catch (e) {
-        handleError("Custom prompt failed.");
-    } finally {
-        setLoading(false);
-    }
+        setSuggestion({ type: 'expand', originalText: textToAnalyze, options: results });
+    } catch { alert("Prompt Error"); }
+    finally { setLoading(false); }
   };
 
   const applySuggestion = (text: string) => {
-    saveHistory(); 
-    
+    saveHistory();
     if (contextBlockId) {
-       setBlocks(prev => prev.map(b => {
-           if (b.id !== contextBlockId) return b;
-           if (suggestion?.type === 'sensory' || suggestion?.type === 'show-dont-tell' || suggestion?.type === 'fluency' || suggestion?.type === 'custom' || suggestion?.type === 'sense-of-place') {
-               return { ...b, content: text };
-           }
-           if (suggestion?.originalText && b.content.includes(suggestion.originalText)) {
-               return { ...b, content: b.content.replace(suggestion.originalText, text) };
-           }
-           return b;
-       }));
-    } else {
-        if (suggestion?.type === 'sensory' || suggestion?.type === 'show-dont-tell' || suggestion?.type === 'fluency' || suggestion?.type === 'custom' || suggestion?.type === 'sense-of-place') {
-           const blockIndex = blocks.findIndex(b => b.content === suggestion.originalText);
-           if (blockIndex !== -1) {
-               const newBlocks = [...blocks];
-               newBlocks[blockIndex] = { ...newBlocks[blockIndex], content: text };
-               setBlocks(newBlocks);
-           }
-        } else {
-          const block = blocks.find(b => b.content.includes(suggestion?.originalText || ''));
-          if (block) {
-            const newContent = block.content.replace(suggestion?.originalText || '', text);
-            handleBlockChange(block.id, newContent);
-          }
+        // Find if context block matches
+        const block = blocks.find(b => b.id === contextBlockId);
+        if (block) {
+            // If it's a full replacement type
+            if (['sensory','show-dont-tell','fluency','custom','sense-of-place'].includes(suggestion?.type || '')) {
+                updateBlock(block.id, text);
+            } else if (suggestion?.originalText && block.content.includes(suggestion.originalText)) {
+                // Partial replacement
+                updateBlock(block.id, block.content.replace(suggestion.originalText, text));
+            }
         }
     }
-
     setSidebarOpen(false);
     window.getSelection()?.removeAllRanges();
     setSelectionRect(null);
   };
 
-  const ModeBtn = ({ id, icon: Icon, label }: { id: Mode, icon: any, label: string }) => {
-      const isActive = mode === id;
-      return (
-        <button 
-            onClick={() => handleModeSwitch(id)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
-                isActive 
-                ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
-                : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
-            }`}
-            title={label}
-        >
-            <Icon size={14} /> 
-            <span className={`${isActive ? 'inline' : 'hidden lg:inline'}`}>{label}</span>
-        </button>
-      );
+  const handleBlockRewrite = async (id: string, prompt: string) => {
+      setContextBlockId(id);
+      handleCustomPrompt(prompt);
   };
 
-  // -- Layout --
+  // -- Scroll Sync --
+  const handleScrollSync = (source: 'left' | 'right') => {
+    if (mode !== 'edit') return;
+    if (isSyncingScroll.current) return;
+    isSyncingScroll.current = true;
+    const left = leftPaneRef.current;
+    const right = rightPaneRef.current;
+    if (left && right) {
+        const src = source === 'left' ? left : right;
+        const dest = source === 'left' ? right : left;
+        const percentage = src.scrollTop / (src.scrollHeight - src.clientHeight);
+        if (dest.scrollHeight > dest.clientHeight) {
+            dest.scrollTop = percentage * (dest.scrollHeight - dest.clientHeight);
+        }
+    }
+    setTimeout(() => { isSyncingScroll.current = false; }, 50);
+  };
+
   return (
     <div 
       className="min-h-screen relative font-sans selection:bg-amber-200 dark:selection:bg-amber-900/50 touch-manipulation"
@@ -753,26 +335,8 @@ const App: React.FC = () => {
           }
       }}
     >
-      
-      {/* Background */}
       <div className="fixed inset-0 pointer-events-none opacity-50 dark:opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]"></div>
 
-      {/* Global Toast for Errors */}
-      <AnimatePresence>
-        {errorMessage && (
-            <motion.div 
-                initial={{ opacity: 0, y: -20, x: "-50%" }}
-                animate={{ opacity: 1, y: 0, x: "-50%" }}
-                exit={{ opacity: 0, y: -20, x: "-50%" }}
-                className="fixed top-24 left-1/2 z-[200] bg-red-500 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-3 font-medium text-sm"
-            >
-                <AlertCircle size={18} />
-                {errorMessage}
-            </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Global Loading */}
       {loading && !sidebarOpen && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/20 backdrop-blur-sm">
              <div className="bg-white dark:bg-zinc-800 p-4 rounded-full shadow-2xl animate-bounce">
@@ -781,151 +345,42 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* Header */}
-      <header className="fixed top-0 left-0 w-full z-30 bg-gradient-to-b from-paper via-paper/90 to-transparent dark:from-zinc-950 dark:via-zinc-950/90 h-24 pointer-events-none ui-no-select flex items-center">
-        <div className="w-full max-w-7xl mx-auto px-4 md:px-6 flex justify-between items-center pointer-events-auto">
-            <div className="flex items-center gap-2 md:gap-4 flex-shrink min-w-0">
-                <div className="hidden md:block">
-                    <h1 className="font-display font-bold text-xl tracking-wider text-ink dark:text-zinc-100 leading-none">InkFlow</h1>
-                    <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest mt-1">
-                        {countWords(blocks)} Words
-                    </div>
-                </div>
-                <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-800 mx-2 hidden md:block"></div>
-                <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 shadow-inner border border-zinc-200 dark:border-zinc-700 overflow-x-auto no-scrollbar max-w-[60vw] md:max-w-none">
-                    <ModeBtn id="metadata" icon={Book} label="Meta" />
-                    <ModeBtn id="braindump" icon={Brain} label="Brain" />
-                    <ModeBtn id="characters" icon={User} label="Chars" />
-                    <ModeBtn id="research" icon={Globe} label="Research" />
-                    <ModeBtn id="write" icon={PenTool} label="Write" />
-                    <ModeBtn id="edit" icon={Edit3} label="Edit" />
-                    <ModeBtn id="shuffle" icon={Shuffle} label="Shuffle" />
-                    <ModeBtn id="analysis" icon={Feather} label="Style" />
-                </div>
-            </div>
+      <TopBar 
+          mode={mode}
+          setMode={handleModeSwitch}
+          user={user}
+          wordCount={countWords(blocks)}
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={history.length > 0}
+          canRedo={redoStack.length > 0}
+          onImport={handleFileUpload}
+          onCopy={handleGlobalCopy}
+          copySuccess={globalCopySuccess}
+          onClear={handleClearText}
+          onGrammar={handleAutoCorrect}
+          isGrammarRunning={isAutoCorrecting}
+          onApprove={takeSnapshot}
+          onRevert={revertToSnapshot}
+          onSettings={() => setSettingsOpen(true)}
+      />
 
-            <div className="flex gap-1 md:gap-2 items-center flex-shrink-0 ml-2">
-                {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && mode !== 'metadata' && (
-                <>
-                    <button onClick={handleUndo} disabled={history.length === 0} className={`p-2 rounded-full transition-all ${history.length === 0 ? 'text-zinc-300 dark:text-zinc-700 opacity-50' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200'}`} title="Undo">
-                        <RotateCcw size={18} />
-                    </button>
-                    <button onClick={handleRedo} disabled={redoStack.length === 0} className={`p-2 rounded-full transition-all ${redoStack.length === 0 ? 'text-zinc-300 dark:text-zinc-700 opacity-50' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200'}`} title="Redo">
-                        <RotateCw size={18} />
-                    </button>
-                    <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1 hidden sm:block"></div>
-                    {mode !== 'edit' && (
-                        <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200 transition-all hidden sm:block" title="Import Handwriting">
-                            <Camera size={18} />
-                            <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept="image/*" />
-                        </button>
-                    )}
-                </>
-                )}
-
-                <button onClick={handleGlobalCopy} className={`p-2 rounded-full transition-all ${globalCopySuccess ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200'}`} title="Copy Content">
-                    {globalCopySuccess ? <Check size={18} /> : <Copy size={18} />}
-                </button>
-
-                {mode === 'edit' && (
-                    <div className="flex gap-2">
-                        <button 
-                            onClick={handleAutoCorrect} 
-                            disabled={isAutoCorrecting}
-                            className={`flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-400 disabled:cursor-wait text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap min-w-[100px] justify-center`}
-                            title="Auto Correct"
-                        >
-                            {isAutoCorrecting ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />} 
-                            <span className="hidden md:inline">{isAutoCorrecting ? "Fixing..." : "Correct"}</span>
-                        </button>
-                        <button onClick={handleApproveChanges} className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap" title="Approve Changes">
-                            <ThumbsUp size={14} /> <span className="hidden md:inline">Approve</span>
-                        </button>
-                        <button onClick={handleRevertChanges} className="flex items-center gap-2 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap" title="Revert Changes">
-                            <ThumbsDown size={14} /> <span className="hidden md:inline">Revert</span>
-                        </button>
-                    </div>
-                )}
-
-                {/* Trash Button - Ensures visibility and correct callback */}
-                {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && mode !== 'metadata' && mode !== 'edit' && (
-                <button 
-                    onClick={handleClearText} 
-                    className="p-2 rounded-full text-zinc-500 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all pointer-events-auto" 
-                    title="Clear Text"
-                >
-                    <Trash2 size={18} />
-                </button>
-                )}
-
-                <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
-
-                <button onClick={() => setSettingsOpen(true)} className="p-3 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-all touch-manipulation text-zinc-600 dark:text-zinc-400 hover:text-ink dark:hover:text-zinc-200" title="Settings">
-                    {user ? (
-                        user.picture ? <img src={user.picture} alt="Profile" className="w-5 h-5 rounded-full" /> : <User size={20} className="text-indigo-500" />
-                    ) : (
-                        <Settings size={20} />
-                    )}
-                </button>
-            </div>
-        </div>
-      </header>
-
-      {/* Main Editor */}
       <main className={`mx-auto relative z-10 transition-all duration-300 flex flex-col ${
-          mode === 'edit' 
+          mode === 'edit' || mode === 'shuffle'
             ? 'w-full md:max-w-7xl h-[100dvh] pt-28 pb-4 px-4 md:px-8 overflow-hidden' 
-            : mode === 'shuffle' 
-                ? 'w-full md:max-w-7xl h-[100dvh] pt-28 pb-4 px-4 md:px-8 overflow-hidden'
-                : 'max-w-3xl min-h-screen pt-32 pb-24 px-6 md:px-12'
+            : 'max-w-3xl min-h-screen pt-32 pb-24 px-6 md:px-12'
       }`}>
         
         {mode === 'braindump' ? (
-           <BraindumpView 
-              typography={typography}
-              onCopy={(text) => navigator.clipboard.writeText(text)}
-              onActiveContentUpdate={setAuxContent}
-              user={user}
-              bookId={currentBookId}
-           />
+           <BraindumpView onCopy={() => {}} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} />
         ) : mode === 'research' ? (
-          <ResearchView 
-             typography={typography}
-             onCopy={(text) => navigator.clipboard.writeText(text)} 
-             onActiveContentUpdate={setAuxContent}
-             user={user}
-             bookId={currentBookId}
-          />
+          <ResearchView onCopy={() => {}} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} />
         ) : mode === 'characters' ? (
-           <CharactersView 
-              typography={typography}
-              onCopy={(text) => navigator.clipboard.writeText(text)}
-              onActiveContentUpdate={setAuxContent}
-              user={user}
-              bookId={currentBookId}
-              manuscriptText={blocks.map(b => b.content).join('\n')}
-           />
+           <CharactersView onCopy={() => {}} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} manuscriptText={blocks.map(b => b.content).join('\n')} />
         ) : mode === 'metadata' ? (
-           <MetadataView 
-              typography={typography}
-              onCopy={(text) => navigator.clipboard.writeText(text)}
-              manuscriptText={blocks.map(b => b.content).join('\n')}
-              onActiveContentUpdate={setAuxContent}
-              user={user}
-              books={books}
-              currentBookId={currentBookId}
-              onSwitchBook={setCurrentBookId}
-              onCreateBook={handleCreateBook}
-              onDeleteBook={handleDeleteBook}
-              onRenameBook={handleRenameBook}
-           />
+           <MetadataView onCopy={() => {}} typography={typography} manuscriptText={blocks.map(b => b.content).join('\n')} onActiveContentUpdate={setAuxContent} user={user} books={books} currentBookId={currentBookId} onSwitchBook={setCurrentBookId} onCreateBook={handleCreateBook} onDeleteBook={handleDeleteBook} onRenameBook={handleRenameBook} />
         ) : mode === 'analysis' ? (
-           <StyleAnalysisView 
-              text={blocks.map(b => b.content).join('\n\n')}
-              typography={typography}
-              user={user}
-              bookId={currentBookId}
-           />
+           <StyleAnalysisView text={blocks.map(b => b.content).join('\n\n')} typography={typography} user={user} bookId={currentBookId} />
         ) : mode === 'edit' ? (
            <div className="grid grid-cols-2 gap-4 md:gap-8 flex-1 min-h-0">
                <div className="flex flex-col h-full min-h-0">
@@ -942,16 +397,15 @@ const App: React.FC = () => {
                                     key={`${block.id}-edit`}
                                     block={block}
                                     isActive={activeBlockId === block.id}
-                                    onChange={handleBlockChange}
-                                    onPaste={handleBlockPaste}
+                                    onChange={handleBlockChangeWrapper}
                                     onFocus={(id) => { setActiveBlockId(id); setContextBlockId(id); }}
                                     onAnalyze={handleBlockAnalysis}
                                     onRewrite={handleBlockRewrite}
                                     typography={typography}
                                     mode="edit" 
                                     readOnly={isAutoCorrecting}
-                                    onRemove={handleRemoveBlock}
-                                    onEnter={handleBlockEnter}
+                                    onRemove={handleRemoveBlockWrapper}
+                                    onEnter={handleBlockEnterWrapper}
                                     isDirty={isDirty}
                                 />
                              );
@@ -983,30 +437,24 @@ const App: React.FC = () => {
         ) : mode === 'shuffle' ? (
            <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr] gap-4 md:gap-8">
                <div className="hidden md:block h-full min-h-0">
-                   <ShuffleSidebar onInsert={handleShuffleInsert} />
+                   <ShuffleSidebar onInsert={(text) => addBlock(activeBlockId || blocks[blocks.length-1].id, text)} />
                </div>
-               <div className="flex flex-col h-full min-h-0 overflow-y-auto pr-2" onDragOver={(e) => e.preventDefault()} onDrop={handleShuffleDrop}>
-                   <Reorder.Group axis="y" values={blocks} onReorder={handleShuffleReorder} className="flex flex-col gap-4 pb-24">
+               <div className="flex flex-col h-full min-h-0 overflow-y-auto pr-2" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const text = e.dataTransfer.getData('text/plain'); if(text) addBlock(uuidv4(), text); }}>
+                   <Reorder.Group axis="y" values={blocks} onReorder={(newBlocks) => { saveHistory(); setBlocks(newBlocks); }} className="flex flex-col gap-4 pb-24">
                       {blocks.map((block) => (
                         <EditorBlock
                             key={`${block.id}-shuffle`}
                             block={block}
                             isActive={false}
                             mode={mode}
-                            onChange={handleBlockChange}
-                            onPaste={handleBlockPaste}
+                            onChange={handleBlockChangeWrapper}
                             onFocus={() => {}}
                             onAnalyze={() => {}}
                             typography={typography}
-                            onShuffleSelect={handleShuffleSelect}
-                            onShuffleContextMenu={handleShuffleContextMenu}
+                            onShuffleSelect={(id) => { setActiveBlockId(id); setMode('write'); }}
+                            onShuffleContextMenu={(id, pos) => { setContextBlockId(id); setSelectionRect(pos); setMenuMode('block'); }}
                         />
                       ))}
-                      {blocks.length === 0 && (
-                          <div className="text-center py-20 text-zinc-400 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl">
-                              Drag items here from the left sidebar or type in Write mode.
-                          </div>
-                      )}
                    </Reorder.Group>
                </div>
            </div>
@@ -1018,19 +466,17 @@ const App: React.FC = () => {
                     block={block}
                     isActive={activeBlockId === block.id}
                     mode={mode}
-                    onChange={handleBlockChange}
-                    onPaste={handleBlockPaste}
+                    onChange={handleBlockChangeWrapper}
                     onFocus={setActiveBlockId}
                     onAnalyze={handleBlockAnalysis}
                     onRewrite={handleBlockRewrite}
                     typography={typography}
-                    onDoubleTap={handleBlockDoubleTap}
-                    onRemove={handleRemoveBlock}
-                    onEnter={handleBlockEnter}
+                    onRemove={handleRemoveBlockWrapper}
+                    onEnter={handleBlockEnterWrapper}
                 />
             ))}
             {mode === 'write' && (
-              <div onClick={() => { const newId = uuidv4(); setBlocks([...blocks, { id: newId, type: 'p', content: '' }]); setActiveBlockId(newId); }} className="h-32 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer group ui-no-select">
+              <div onClick={() => { const newId = addBlock(blocks[blocks.length-1]?.id || uuidv4(), ''); setActiveBlockId(newId); }} className="h-32 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-pointer group ui-no-select">
                   <span className="text-zinc-400 font-serif italic group-hover:translate-y-1 transition-transform">Click to add new paragraph...</span>
               </div>
             )}
