@@ -119,6 +119,7 @@ const App: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isAutoCorrecting, setIsAutoCorrecting] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   
   // Research & Braindump & Metadata State
@@ -246,7 +247,7 @@ const App: React.FC = () => {
       if (!window.confirm("This will process the entire document to correct simple punctuation and grammar mistakes. Continue?")) return;
       
       saveHistory();
-      setLoading(true);
+      setIsAutoCorrecting(true);
 
       const newBlocks = [...blocks];
       // Process in sequence to avoid rate limits and keep it simple
@@ -263,7 +264,7 @@ const App: React.FC = () => {
       }
 
       setBlocks(newBlocks);
-      setLoading(false);
+      setIsAutoCorrecting(false);
   };
 
   // -- Scroll Sync Logic (Edit Mode) --
@@ -765,8 +766,14 @@ const App: React.FC = () => {
 
                 {mode === 'edit' && (
                     <div className="flex gap-2">
-                        <button onClick={handleAutoCorrect} className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap" title="Auto Correct">
-                            <Wand2 size={14} /> <span className="hidden md:inline">Correct</span>
+                        <button 
+                            onClick={handleAutoCorrect} 
+                            disabled={isAutoCorrecting}
+                            className={`flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-400 disabled:cursor-wait text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap`}
+                            title="Auto Correct"
+                        >
+                            <Wand2 size={14} className={isAutoCorrecting ? "animate-spin" : ""} /> 
+                            <span className="hidden md:inline">Correct</span>
                         </button>
                         <button onClick={handleApproveChanges} className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap" title="Approve Changes">
                             <ThumbsUp size={14} /> <span className="hidden md:inline">Approve</span>
@@ -874,7 +881,7 @@ const App: React.FC = () => {
                                     onRewrite={handleBlockRewrite}
                                     typography={typography}
                                     mode="edit" 
-                                    readOnly={false}
+                                    readOnly={isAutoCorrecting}
                                     onRemove={handleRemoveBlock}
                                     onEnter={handleBlockEnter}
                                     isDirty={isDirty}
