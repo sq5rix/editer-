@@ -120,6 +120,7 @@ const App: React.FC = () => {
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [loading, setLoading] = useState(false);
   const [isAutoCorrecting, setIsAutoCorrecting] = useState(false);
+  const [correctionProgress, setCorrectionProgress] = useState<{ current: number; total: number } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   
   // Research & Braindump & Metadata State
@@ -248,23 +249,41 @@ const App: React.FC = () => {
       
       saveHistory();
       setIsAutoCorrecting(true);
+      setCorrectionProgress(null);
 
-      const newBlocks = [...blocks];
-      // Process in sequence to avoid rate limits and keep it simple
-      for (let i = 0; i < newBlocks.length; i++) {
-          const block = newBlocks[i];
-          // Skip HRs or very short blocks
-          if (block.type === 'hr' || block.content.trim().length < 5) continue;
+      try {
+          const newBlocks = [...blocks];
+          
+          // Identify eligible blocks first to show accurate progress
+          const eligibleIndices = newBlocks.reduce((acc, block, index) => {
+              if (block.type !== 'hr' && block.content.trim().length > 5) {
+                   // Skip very short H1s
+                   if (block.type === 'h1' && block.content.length < 3) return acc;
+                   acc.push(index);
+              }
+              return acc;
+          }, [] as number[]);
 
-          // Don't correct H1s usually as they might be stylistic, but let's do it if it's longer
-          if (block.type === 'h1' && block.content.length < 3) continue;
+          setCorrectionProgress({ current: 0, total: eligibleIndices.length });
 
-          const corrected = await GeminiService.autoCorrect(block.content);
-          newBlocks[i] = { ...block, content: corrected };
+          for (let i = 0; i < eligibleIndices.length; i++) {
+              const idx = eligibleIndices[i];
+              const block = newBlocks[idx];
+              
+              setCorrectionProgress({ current: i + 1, total: eligibleIndices.length });
+
+              const corrected = await GeminiService.autoCorrect(block.content);
+              newBlocks[idx] = { ...block, content: corrected };
+          }
+
+          setBlocks(newBlocks);
+      } catch (e) {
+          console.error("Auto-correction error:", e);
+          alert("An error occurred during auto-correction. Some changes may not have been applied.");
+      } finally {
+          setIsAutoCorrecting(false);
+          setCorrectionProgress(null);
       }
-
-      setBlocks(newBlocks);
-      setIsAutoCorrecting(false);
   };
 
   // -- Scroll Sync Logic (Edit Mode) --
@@ -721,12 +740,25 @@ const App: React.FC = () => {
       {/* Auto-Correct Blocking Overlay */}
       {isAutoCorrecting && (
           <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-black/20 backdrop-blur-sm cursor-wait">
-             <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 border border-zinc-200 dark:border-zinc-700">
+             <div className="bg-white dark:bg-zinc-800 p-6 rounded-2xl shadow-2xl flex flex-col items-center gap-4 border border-zinc-200 dark:border-zinc-700 w-80">
                 <Loader2 className="animate-spin text-blue-500" size={32} />
-                <div className="text-center">
-                    <h3 className="font-bold text-zinc-800 dark:text-zinc-100">Polishing Manuscript</h3>
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400">Correcting grammar & punctuation...</p>
+                <div className="text-center w-full">
+                    <h3 className="font-bold text-zinc-800 dark:text-zinc-100 mb-1">Polishing Manuscript</h3>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                        {correctionProgress 
+                            ? `Correcting paragraph ${correctionProgress.current} of ${correctionProgress.total}...` 
+                            : "Initializing..."}
+                    </p>
                 </div>
+                {/* Progress Bar */}
+                {correctionProgress && correctionProgress.total > 0 && (
+                    <div className="w-full h-1.5 bg-zinc-100 dark:bg-zinc-700 rounded-full overflow-hidden mt-1">
+                        <div 
+                            className="h-full bg-blue-500 transition-all duration-300 ease-out"
+                            style={{ width: `${(correctionProgress.current / correctionProgress.total) * 100}%` }}
+                        />
+                    </div>
+                )}
              </div>
           </div>
       )}
