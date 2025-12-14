@@ -133,48 +133,6 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
       }
   };
 
-  // --- Grammar / Auto-Correct Logic ---
-  const performGrammarCheck = async () => {
-      // 1. Set Loading State
-      setIsAutoCorrecting(true);
-      
-      // 2. Snapshot current state for Blue Diffs
-      setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
-
-      // 3. Yield to render the spinner
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      const blocksToProcess = [...blocks];
-      
-      // 4. Iterate
-      for (let i = 0; i < blocksToProcess.length; i++) {
-          const block = blocksToProcess[i];
-          
-          if (block.type === 'hr' || block.content.trim().length < 2) continue;
-
-          try {
-              const corrected = await GeminiService.autoCorrect(block.content);
-              
-              if (corrected && corrected !== block.content) {
-                  setBlocks(prev => {
-                      const newBlocks = [...prev];
-                      const idx = newBlocks.findIndex(b => b.id === block.id);
-                      if (idx !== -1) {
-                          newBlocks[idx] = { ...newBlocks[idx], content: corrected };
-                      }
-                      return newBlocks;
-                  });
-              }
-              // Small delay to ensure UI breathing room
-              await new Promise(resolve => setTimeout(resolve, 10));
-          } catch (e) {
-              console.error(`Error fixing block ${block.id}`, e);
-          }
-      }
-
-      setIsAutoCorrecting(false);
-  };
-
   const takeSnapshot = () => {
       setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
   };
@@ -182,6 +140,53 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
   const revertToSnapshot = () => {
       if (originalSnapshot.length > 0) {
           setBlocks(JSON.parse(JSON.stringify(originalSnapshot)));
+      }
+  };
+
+  // --- Grammar / Auto-Correct Logic ---
+  const performGrammarCheck = async () => {
+      if (isAutoCorrecting) return;
+      setIsAutoCorrecting(true);
+      
+      // Snapshot first if not already matching (to ensure diffs work)
+      takeSnapshot();
+
+      // Yield
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      const blocksToProcess = [...blocks];
+      
+      try {
+          for (let i = 0; i < blocksToProcess.length; i++) {
+              const block = blocksToProcess[i];
+              
+              // Skip if component unmounted or logic changed (simplified check)
+              if (block.type === 'hr' || block.content.trim().length < 3) continue;
+
+              try {
+                  const corrected = await GeminiService.autoCorrect(block.content);
+                  
+                  if (corrected && corrected !== block.content) {
+                      setBlocks(prev => {
+                          const newBlocks = [...prev];
+                          const idx = newBlocks.findIndex(b => b.id === block.id);
+                          // Only update if block still exists
+                          if (idx !== -1) {
+                              newBlocks[idx] = { ...newBlocks[idx], content: corrected };
+                          }
+                          return newBlocks;
+                      });
+                  }
+                  // Small delay to allow UI updates
+                  await new Promise(resolve => setTimeout(resolve, 50));
+              } catch (e) {
+                  console.error(`Error fixing block ${block.id}`, e);
+              }
+          }
+      } catch (err) {
+          console.error("Global grammar error", err);
+      } finally {
+          setIsAutoCorrecting(false);
       }
   };
 
@@ -199,7 +204,6 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
       importText,
       saveHistory,
       
-      // Grammar Specifics
       isAutoCorrecting,
       performGrammarCheck,
       originalSnapshot,

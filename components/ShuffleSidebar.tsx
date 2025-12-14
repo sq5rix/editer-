@@ -7,34 +7,16 @@ type SourceType = 'braindump' | 'characters' | 'research';
 
 interface ShuffleSidebarProps {
   onInsert: (text: string) => void;
+  braindumpData: BraindumpItem[];
+  characterData: Character[];
+  researchData: ResearchThread[];
 }
 
-const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert }) => {
+const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, braindumpData, characterData, researchData }) => {
   const [activeSourceIndex, setActiveSourceIndex] = useState(0);
   const sources: SourceType[] = ['braindump', 'characters', 'research'];
   const [searchQuery, setSearchQuery] = useState("");
   
-  // Data State
-  const [braindumpItems, setBraindumpItems] = useState<BraindumpItem[]>([]);
-  const [characters, setCharacters] = useState<Character[]>([]);
-  const [researchThreads, setResearchThreads] = useState<ResearchThread[]>([]);
-
-  // Load Data on Mount
-  useEffect(() => {
-    try {
-      const bd = localStorage.getItem('inkflow_braindumps');
-      if (bd) setBraindumpItems(JSON.parse(bd));
-
-      const ch = localStorage.getItem('inkflow_characters');
-      if (ch) setCharacters(JSON.parse(ch));
-
-      const rs = localStorage.getItem('inkflow_research_threads');
-      if (rs) setResearchThreads(JSON.parse(rs));
-    } catch (e) {
-      console.error("Error loading sidebar data", e);
-    }
-  }, []);
-
   const activeSource = sources[activeSourceIndex];
 
   const handleNext = () => setActiveSourceIndex((prev) => (prev + 1) % sources.length);
@@ -45,20 +27,20 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert }) => {
     let items: { id: string; title?: string; content: string; fullText: string }[] = [];
 
     if (activeSource === 'braindump') {
-      items = braindumpItems.map(item => ({
+      items = braindumpData.map(item => ({
         id: item.id,
         content: item.content,
         fullText: item.content
       }));
     } else if (activeSource === 'characters') {
-      items = characters.map(char => ({
+      items = characterData.map(char => ({
         id: char.id,
         title: char.name,
         content: char.coreDesire,
         fullText: `**${char.name}** (${char.greimasRole})\n\n${char.description}`
       }));
     } else if (activeSource === 'research') {
-      items = researchThreads.flatMap(thread => 
+      items = researchData.flatMap(thread => 
         thread.interactions.map(interaction => ({
           id: interaction.id,
           title: interaction.query,
@@ -73,7 +55,7 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert }) => {
       (i.title && i.title.toLowerCase().includes(searchQuery.toLowerCase())) || 
       i.content.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [activeSource, braindumpItems, characters, researchThreads, searchQuery]);
+  }, [activeSource, braindumpData, characterData, researchData, searchQuery]);
 
   const handleDragStart = (e: React.DragEvent, text: string) => {
     e.dataTransfer.setData('text/plain', text);
@@ -117,7 +99,7 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert }) => {
         <AnimatePresence mode="popLayout">
           {displayItems.length === 0 && (
              <motion.div initial={{opacity: 0}} animate={{opacity: 1}} className="text-center text-xs text-zinc-400 italic py-10">
-                Nothing found.
+                {searchQuery ? "No matches." : "No items found in this section."}
              </motion.div>
           )}
           {displayItems.map((item) => (

@@ -3,7 +3,7 @@ import { Loader2, ArrowRightLeft } from 'lucide-react';
 import { motion, Reorder, AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
-import { Theme, TypographySettings, Mode, User as UserType, Suggestion } from './types';
+import { Theme, TypographySettings, Mode, User as UserType, Suggestion, BraindumpItem, Character, ResearchThread } from './types';
 import { countWords } from './utils';
 import * as GeminiService from './services/geminiService';
 import * as FirebaseService from './services/firebase';
@@ -44,11 +44,15 @@ const App: React.FC = () => {
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [loading, setLoading] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [auxContent, setAuxContent] = useState(""); 
   const [globalCopySuccess, setGlobalCopySuccess] = useState(false);
   const [menuMode, setMenuMode] = useState<'selection' | 'block'>('selection');
   const [contextBlockId, setContextBlockId] = useState<string | null>(null);
+
+  // -- Sidebar Data State (Lifted for Shuffle Mode) --
+  const [braindumpItems, setBraindumpItems] = useState<BraindumpItem[]>([]);
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [researchThreads, setResearchThreads] = useState<ResearchThread[]>([]);
   
   // Scroll Sync Refs
   const leftPaneRef = useRef<HTMLDivElement>(null);
@@ -61,6 +65,26 @@ const App: React.FC = () => {
     fontSize: 18,
     contrast: 0.95
   });
+
+  // -- Load Aux Data for Shuffle Mode --
+  useEffect(() => {
+      const loadAux = () => {
+        try {
+            const bd = localStorage.getItem(`inkflow_braindumps_${currentBookId}`);
+            if (bd) setBraindumpItems(JSON.parse(bd));
+            const ch = localStorage.getItem(`inkflow_characters_${currentBookId}`);
+            if (ch) setCharacters(JSON.parse(ch));
+            const rs = localStorage.getItem(`inkflow_research_threads_${currentBookId}`);
+            if (rs) setResearchThreads(JSON.parse(rs));
+        } catch (e) { console.error(e); }
+      };
+      loadAux();
+      // Listen for local storage changes if needed, but the views update these keys
+      // We can also poll or rely on the fact that switching modes triggers re-renders
+      const interval = setInterval(loadAux, 2000);
+      return () => clearInterval(interval);
+  }, [currentBookId]);
+
 
   // -- Auth Listener --
   useEffect(() => {
@@ -128,16 +152,20 @@ const App: React.FC = () => {
       if (mode === 'shuffle') setMode('write');
   };
 
+  const copyToClipboard = (text: string) => {
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => {
+          setGlobalCopySuccess(true);
+          setTimeout(() => setGlobalCopySuccess(false), 2000);
+      }).catch(err => console.error("Copy failed", err));
+  };
+
   const handleGlobalCopy = () => {
     const textToCopy = (mode === 'research' || mode === 'braindump' || mode === 'characters' || mode === 'metadata')
         ? auxContent 
         : blocks.map(b => b.type === 'hr' ? '---' : b.content).join('\n\n');
     
-    if (textToCopy) {
-        navigator.clipboard.writeText(textToCopy);
-        setGlobalCopySuccess(true);
-        setTimeout(() => setGlobalCopySuccess(false), 2000);
-    }
+    copyToClipboard(textToCopy);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -285,14 +313,11 @@ const App: React.FC = () => {
   const applySuggestion = (text: string) => {
     saveHistory();
     if (contextBlockId) {
-        // Find if context block matches
         const block = blocks.find(b => b.id === contextBlockId);
         if (block) {
-            // If it's a full replacement type
             if (['sensory','show-dont-tell','fluency','custom','sense-of-place'].includes(suggestion?.type || '')) {
                 updateBlock(block.id, text);
             } else if (suggestion?.originalText && block.content.includes(suggestion.originalText)) {
-                // Partial replacement
                 updateBlock(block.id, block.content.replace(suggestion.originalText, text));
             }
         }
@@ -372,13 +397,13 @@ const App: React.FC = () => {
       }`}>
         
         {mode === 'braindump' ? (
-           <BraindumpView onCopy={() => {}} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} />
+           <BraindumpView onCopy={copyToClipboard} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} />
         ) : mode === 'research' ? (
-          <ResearchView onCopy={() => {}} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} />
+          <ResearchView onCopy={copyToClipboard} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} />
         ) : mode === 'characters' ? (
-           <CharactersView onCopy={() => {}} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} manuscriptText={blocks.map(b => b.content).join('\n')} />
+           <CharactersView onCopy={copyToClipboard} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} manuscriptText={blocks.map(b => b.content).join('\n')} />
         ) : mode === 'metadata' ? (
-           <MetadataView onCopy={() => {}} typography={typography} manuscriptText={blocks.map(b => b.content).join('\n')} onActiveContentUpdate={setAuxContent} user={user} books={books} currentBookId={currentBookId} onSwitchBook={setCurrentBookId} onCreateBook={handleCreateBook} onDeleteBook={handleDeleteBook} onRenameBook={handleRenameBook} />
+           <MetadataView onCopy={copyToClipboard} typography={typography} manuscriptText={blocks.map(b => b.content).join('\n')} onActiveContentUpdate={setAuxContent} user={user} books={books} currentBookId={currentBookId} onSwitchBook={setCurrentBookId} onCreateBook={handleCreateBook} onDeleteBook={handleDeleteBook} onRenameBook={handleRenameBook} />
         ) : mode === 'analysis' ? (
            <StyleAnalysisView text={blocks.map(b => b.content).join('\n\n')} typography={typography} user={user} bookId={currentBookId} />
         ) : mode === 'edit' ? (
@@ -437,7 +462,13 @@ const App: React.FC = () => {
         ) : mode === 'shuffle' ? (
            <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr] gap-4 md:gap-8">
                <div className="hidden md:block h-full min-h-0">
-                   <ShuffleSidebar onInsert={(text) => addBlock(activeBlockId || blocks[blocks.length-1].id, text)} />
+                   {/* Pass loaded data into ShuffleSidebar */}
+                   <ShuffleSidebar 
+                      onInsert={(text) => addBlock(activeBlockId || blocks[blocks.length-1]?.id || uuidv4(), text)} 
+                      braindumpData={braindumpItems}
+                      characterData={characters}
+                      researchData={researchThreads}
+                   />
                </div>
                <div className="flex flex-col h-full min-h-0 overflow-y-auto pr-2" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const text = e.dataTransfer.getData('text/plain'); if(text) addBlock(uuidv4(), text); }}>
                    <Reorder.Group axis="y" values={blocks} onReorder={(newBlocks) => { saveHistory(); setBlocks(newBlocks); }} className="flex flex-col gap-4 pb-24">
