@@ -859,23 +859,28 @@ const App: React.FC = () => {
                        Live Editor
                    </div>
                    <div ref={leftPaneRef} onScroll={() => handleScrollSync('left')} className="flex-1 overflow-y-auto pl-4 pr-4 border-r border-zinc-200 dark:border-zinc-800">
-                        {blocks.map((block) => (
-                            <EditorBlock
-                                key={`${block.id}-edit`}
-                                block={block}
-                                isActive={activeBlockId === block.id}
-                                onChange={handleBlockChange}
-                                onPaste={handleBlockPaste}
-                                onFocus={(id) => { setActiveBlockId(id); setContextBlockId(id); }}
-                                onAnalyze={handleBlockAnalysis}
-                                onRewrite={handleBlockRewrite}
-                                typography={typography}
-                                mode="edit" 
-                                readOnly={false}
-                                onRemove={handleRemoveBlock}
-                                onEnter={handleBlockEnter}
-                            />
-                        ))}
+                        {blocks.map((block) => {
+                             const snapshotBlock = originalSnapshot.find(b => b.id === block.id);
+                             const isDirty = mode === 'edit' && (!snapshotBlock || snapshotBlock.content !== block.content);
+                             return (
+                                <EditorBlock
+                                    key={`${block.id}-edit`}
+                                    block={block}
+                                    isActive={activeBlockId === block.id}
+                                    onChange={handleBlockChange}
+                                    onPaste={handleBlockPaste}
+                                    onFocus={(id) => { setActiveBlockId(id); setContextBlockId(id); }}
+                                    onAnalyze={handleBlockAnalysis}
+                                    onRewrite={handleBlockRewrite}
+                                    typography={typography}
+                                    mode="edit" 
+                                    readOnly={false}
+                                    onRemove={handleRemoveBlock}
+                                    onEnter={handleBlockEnter}
+                                    isDirty={isDirty}
+                                />
+                             );
+                        })}
                    </div>
                </div>
                <div className="flex flex-col h-full min-h-0">

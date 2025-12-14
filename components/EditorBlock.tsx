@@ -21,6 +21,7 @@ interface EditorBlockProps {
   readOnly?: boolean;
   onRemove?: (id: string) => void;
   onEnter?: (id: string, cursorPosition: number) => void;
+  isDirty?: boolean;
 }
 
 const EditorBlock: React.FC<EditorBlockProps> = ({ 
@@ -38,7 +39,8 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   onDoubleTap,
   readOnly = false,
   onRemove,
-  onEnter
+  onEnter,
+  isDirty = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -411,9 +413,10 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
             }
           }}
           style={textStyle}
-          className={`${commonClasses} resize-none ${isRewriting ? 'opacity-50 animate-pulse' : ''}`}
+          className={`${commonClasses} resize-none ${isRewriting ? 'opacity-50 animate-pulse' : ''} ${isDirty ? '!border-b-2 !border-blue-300/50 dark:!border-blue-400/40 border-dashed pb-1' : ''}`}
           placeholder={block.type === 'h1' ? "Chapter Title..." : "Start writing..."}
           disabled={isRewriting}
+          title={isDirty ? "Modified (Pending Approval)" : undefined}
         />
       ) : (
         /* Render as a DIV in ReadOnly or old Edit Mode */
