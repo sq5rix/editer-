@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather, Book, ArrowRightLeft, ThumbsUp } from 'lucide-react';
+import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather, Book, ArrowRightLeft, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { motion, Reorder } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -234,6 +234,12 @@ const App: React.FC = () => {
 
   const handleApproveChanges = () => {
     setOriginalSnapshot(JSON.parse(JSON.stringify(blocks)));
+  };
+
+  const handleRevertChanges = () => {
+      if (window.confirm("Discard all changes made in the Live Editor?")) {
+          setBlocks(JSON.parse(JSON.stringify(originalSnapshot)));
+      }
   };
 
   // -- Scroll Sync Logic (Edit Mode) --
@@ -734,9 +740,14 @@ const App: React.FC = () => {
                 </button>
 
                 {mode === 'edit' && (
-                    <button onClick={handleApproveChanges} className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap" title="Sync Original with Live">
-                        <ThumbsUp size={14} /> <span className="hidden md:inline">Approve</span>
-                    </button>
+                    <div className="flex gap-2">
+                        <button onClick={handleApproveChanges} className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap" title="Approve Changes">
+                            <ThumbsUp size={14} /> <span className="hidden md:inline">Approve</span>
+                        </button>
+                        <button onClick={handleRevertChanges} className="flex items-center gap-2 px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap" title="Revert Changes">
+                            <ThumbsDown size={14} /> <span className="hidden md:inline">Revert</span>
+                        </button>
+                    </div>
                 )}
 
                 {mode !== 'research' && mode !== 'braindump' && mode !== 'characters' && mode !== 'analysis' && mode !== 'metadata' && mode !== 'edit' && (
