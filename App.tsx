@@ -249,34 +249,46 @@ const App: React.FC = () => {
       
       saveHistory();
       setIsAutoCorrecting(true);
-      setCorrectionProgress(null);
+      setCorrectionProgress({ current: 0, total: 0 });
 
       try {
-          const newBlocks = [...blocks];
+          // Use a copy to update state incrementally
+          let currentBlocks = JSON.parse(JSON.stringify(blocks));
           
           // Identify eligible blocks first to show accurate progress
-          const eligibleIndices = newBlocks.reduce((acc, block, index) => {
-              if (block.type !== 'hr' && block.content.trim().length > 5) {
+          const eligibleIndices = currentBlocks.reduce((acc: number[], block: Block, index: number) => {
+              if (block.type !== 'hr' && block.content && block.content.trim().length > 5) {
                    // Skip very short H1s
                    if (block.type === 'h1' && block.content.length < 3) return acc;
                    acc.push(index);
               }
               return acc;
-          }, [] as number[]);
+          }, []);
+
+          if (eligibleIndices.length === 0) {
+            setIsAutoCorrecting(false);
+            alert("No text found suitable for correction.");
+            return;
+          }
 
           setCorrectionProgress({ current: 0, total: eligibleIndices.length });
 
           for (let i = 0; i < eligibleIndices.length; i++) {
               const idx = eligibleIndices[i];
-              const block = newBlocks[idx];
+              const block = currentBlocks[idx];
               
               setCorrectionProgress({ current: i + 1, total: eligibleIndices.length });
 
+              // Await the API call
               const corrected = await GeminiService.autoCorrect(block.content);
-              newBlocks[idx] = { ...block, content: corrected };
+              
+              // Update local array
+              currentBlocks[idx] = { ...block, content: corrected };
+              
+              // Force update UI so user sees changes incrementally behind overlay
+              setBlocks([...currentBlocks]);
           }
 
-          setBlocks(newBlocks);
       } catch (e) {
           console.error("Auto-correction error:", e);
           alert("An error occurred during auto-correction. Some changes may not have been applied.");
@@ -817,8 +829,8 @@ const App: React.FC = () => {
                             className={`flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-400 disabled:cursor-wait text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap`}
                             title="Auto Correct"
                         >
-                            <Wand2 size={14} className={isAutoCorrecting ? "animate-spin" : ""} /> 
-                            <span className="hidden md:inline">Correct</span>
+                            {isAutoCorrecting ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />} 
+                            <span className="hidden md:inline">{isAutoCorrecting ? "Fixing..." : "Correct"}</span>
                         </button>
                         <button onClick={handleApproveChanges} className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold uppercase tracking-wider rounded-full shadow-lg transition-all whitespace-nowrap" title="Approve Changes">
                             <ThumbsUp size={14} /> <span className="hidden md:inline">Approve</span>
