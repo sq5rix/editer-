@@ -35,36 +35,50 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, onNavigate, b
       if (!normalizedQuery) return [];
 
       const matches: { start: number, end: number, preview: string }[] = [];
-      
-      // Simple substring search for context preview
-      const index = normalizedText.indexOf(normalizedQuery);
-      if (index !== -1) {
-          const start = Math.max(0, index - 30);
-          const end = Math.min(text.length, index + query.length + 30);
+      const tokens = normalizedQuery.split(/\s+/).filter(t => t.length > 0);
+
+      // Priority 1: Exact Phrase Match
+      const exactIndex = normalizedText.indexOf(normalizedQuery);
+      if (exactIndex !== -1) {
+          const start = Math.max(0, exactIndex - 30);
+          const end = Math.min(text.length, exactIndex + query.length + 30);
           const prefix = start > 0 ? '...' : '';
           const suffix = end < text.length ? '...' : '';
-          
           matches.push({
-              start: index,
-              end: index + query.length,
+              start: exactIndex,
+              end: exactIndex + query.length,
               preview: prefix + text.substring(start, end) + suffix
           });
-      } else {
-          // Token fallback for display if exact phrase not found
-          const words = normalizedQuery.split(/\s+/);
-          const firstWordIdx = normalizedText.indexOf(words[0]);
-          if (firstWordIdx !== -1) {
-             const start = Math.max(0, firstWordIdx - 30);
-             const end = Math.min(text.length, firstWordIdx + 50);
-             matches.push({
-                 start: firstWordIdx,
-                 end: end,
-                 preview: (start > 0 ? '...' : '') + text.substring(start, end) + '...'
-             });
+          return matches;
+      }
+
+      // Priority 2: Best Token Cluster (find context around the longest token)
+      const sortedTokens = [...tokens].sort((a, b) => b.length - a.length);
+      const mainToken = sortedTokens[0];
+      
+      if (mainToken) {
+          let searchStart = 0;
+          // Find up to 2 occurrences
+          for(let i=0; i<2; i++) {
+              const idx = normalizedText.indexOf(mainToken, searchStart);
+              if (idx === -1) break;
+              
+              const start = Math.max(0, idx - 30);
+              const end = Math.min(text.length, idx + mainToken.length + 40);
+              const prefix = start > 0 ? '...' : '';
+              const suffix = end < text.length ? '...' : '';
+              
+              matches.push({
+                  start: idx,
+                  end: idx + mainToken.length,
+                  preview: prefix + text.substring(start, end) + suffix
+              });
+              
+              searchStart = idx + mainToken.length;
           }
       }
       
-      return matches;
+      return matches.length > 0 ? matches : [];
   };
 
   const isMatch = (text: string, query: string) => {
@@ -72,26 +86,15 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, onNavigate, b
       const normalizedText = text.toLowerCase();
       const normalizedQuery = query.toLowerCase().trim();
       
-      // 1. Exact substring
+      // 1. Exact substring (Highest confidence)
       if (normalizedText.includes(normalizedQuery)) return true;
       
-      // 2. Token match
+      // 2. Token match (AND) - All words must exist as substrings
+      // This allows "dark storm" to find "The dark and terrible storm"
       const tokens = normalizedQuery.split(/\s+/).filter(t => t.length > 0);
-      if (tokens.every(t => normalizedText.includes(t))) return true;
+      if (tokens.length > 1 && tokens.every(t => normalizedText.includes(t))) return true;
 
-      // 3. Sequential match (fuzzy)
-      // e.g. "chr" matches "character"
-      let searchIndex = 0;
-      let matchedChars = 0;
-      for (const char of normalizedQuery) {
-          if (char === ' ') continue;
-          const idx = normalizedText.indexOf(char, searchIndex);
-          if (idx === -1) return false;
-          searchIndex = idx + 1;
-          matchedChars++;
-      }
-      // Only return true if we matched something significant (avoids empty query matching everything if logic fails)
-      return matchedChars > 0;
+      return false;
   };
 
   // Flatten all data
@@ -188,14 +191,24 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, onNavigate, b
   const HighlightedText = ({ text, highlight }: { text: string, highlight: string }) => {
       if (!highlight.trim()) return <span>{text}</span>;
       
-      // Simple highlight for the exact query string
-      const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
+      const tokens = highlight.trim().split(/\s+/).filter(t => t.length > 0);
+      if (tokens.length === 0) return <span>{text}</span>;
+
+      // Escape regex special chars and create a pattern for all tokens
+      const escapedTokens = tokens.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      const pattern = new RegExp(`(${escapedTokens.join('|')})`, 'gi');
+      
+      const parts = text.split(pattern);
+
       return (
           <span>
               {parts.map((part, i) => 
-                  part.toLowerCase() === highlight.toLowerCase() 
+                  // If the part matches our pattern (is one of the tokens), highlight it
+                  // Since split with capturing group returns the separator, odd indices are matches.
+                  // But checking regex test is safer if behavior varies.
+                  pattern.test(part)
                   ? <mark key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-inherit rounded-sm px-0.5">{part}</mark> 
-                  : part
+                  : <span key={i}>{part}</span>
               )}
           </span>
       );
