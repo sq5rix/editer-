@@ -100,7 +100,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
             }
         }
         if (!showPrompt) {
-            (hrRef.current || textareaRef.current)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            (hrRef.current || textareaRef.current)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }, 50);
     }

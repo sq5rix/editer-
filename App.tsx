@@ -496,7 +496,11 @@ const App: React.FC = () => {
                             onFocus={() => {}}
                             onAnalyze={() => {}}
                             typography={typography}
-                            onShuffleSelect={(id) => { setActiveBlockId(id); setMode('write'); }}
+                            onShuffleSelect={(id) => { 
+                                takeSnapshot();
+                                setActiveBlockId(id); 
+                                setMode('edit');
+                            }}
                             onShuffleContextMenu={(id, pos) => { setContextBlockId(id); setSelectionRect(pos); setMenuMode('block'); }}
                             searchQuery={searchQuery}
                         />
