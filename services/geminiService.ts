@@ -416,6 +416,38 @@ export const analyzeStyle = async (text: string): Promise<StyleAnalysis> => {
     }
 };
 
+export const refineStyleAnalysis = async (analysis: StyleAnalysis, history: {role: string, content: string}[], userPrompt: string): Promise<string> => {
+  try {
+    const context = `
+    Voice: ${analysis.voice}
+    Tone: ${analysis.tone}
+    Summary: ${analysis.summary}
+    Strengths: ${analysis.strengths.join(', ')}
+    Weaknesses: ${analysis.weaknesses.join(', ')}
+    
+    History:
+    ${history.map(h => `${h.role.toUpperCase()}: ${h.content}`).join('\n')}
+    `;
+
+    const response = await ai.models.generateContent({
+      model: MODEL_TEXT,
+      contents: `You are a literary editor discussing a style analysis.
+      
+      CONTEXT:
+      ${context}
+
+      USER QUESTION:
+      "${userPrompt}"
+
+      Answer the user's question based on the analysis provided. Be helpful, specific, and editorial in tone.`,
+    });
+    return response.text || "";
+  } catch (error) {
+    console.error("Refine Analysis Error:", error);
+    return "I couldn't generate a response.";
+  }
+};
+
 // -- BOOK METADATA GENERATORS --
 
 export const generateSubtitles = async (title: string, manuscript: string): Promise<string[]> => {
