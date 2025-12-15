@@ -95,6 +95,11 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
       }
       setBlocks(prev => prev.map(b => b.id === id ? { ...b, content } : b));
   };
+  
+  const updateBlockType = (id: string, type: 'h1' | 'h2' | 'p' | 'hr') => {
+      saveHistory();
+      setBlocks(prev => prev.map(b => b.id === id ? { ...b, type } : b));
+  };
 
   const addBlock = (afterId: string, content: string = '') => {
       saveHistory();
@@ -186,7 +191,7 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
           for (let i = 0; i < blocksToProcess.length; i++) {
               const block = blocksToProcess[i];
 
-              if (block.type === 'hr' || block.type === 'h1' || block.content.trim().length < 2) continue;
+              if (block.type === 'hr' || block.type === 'h1' || block.type === 'h2' || block.content.trim().length < 2) continue;
 
               setProcessingBlockId(block.id); // Highlight yellow
 
@@ -226,6 +231,7 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
       undo,
       redo,
       updateBlock,
+      updateBlockType,
       addBlock,
       removeBlock,
       clearAll,

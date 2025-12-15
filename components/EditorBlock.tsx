@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { Block, TypographySettings, Mode } from '../types';
-import { Eye, BookOpen, GripVertical, Wand2, Sparkles, ArrowRight, X, MapPin, Trash2, Edit } from 'lucide-react';
+import { Eye, BookOpen, GripVertical, Wand2, Sparkles, ArrowRight, X, MapPin, Trash2, Edit, MoreHorizontal, Heading1, Heading2, AlignLeft } from 'lucide-react';
 import { motion, Reorder, useDragControls, AnimatePresence } from 'framer-motion';
 import { simpleWordDiff } from '../utils';
 
@@ -10,6 +10,7 @@ interface EditorBlockProps {
   isActive: boolean;
   mode: Mode;
   onChange: (id: string, newContent: string) => void;
+  onTypeChange?: (id: string, type: 'h1' | 'h2' | 'p') => void;
   onPaste?: (id: string, e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
   onFocus: (id: string) => void;
   onAnalyze: (id: string, type: 'sensory' | 'show-dont-tell' | 'fluency' | 'sense-of-place') => void;
@@ -32,7 +33,8 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   block, 
   isActive, 
   mode, 
-  onChange, 
+  onChange,
+  onTypeChange,
   onPaste, 
   onFocus, 
   onAnalyze,
@@ -62,6 +64,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   const [showPrompt, setShowPrompt] = useState(false);
   const [promptText, setPromptText] = useState("");
   const [isRewriting, setIsRewriting] = useState(false);
+  const [showTypeMenu, setShowTypeMenu] = useState(false);
 
   // Focus prompt input when opened
   useEffect(() => {
@@ -74,6 +77,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   useEffect(() => {
       if (!isActive) {
           setShowPrompt(false);
+          setShowTypeMenu(false);
       }
   }, [isActive]);
 
@@ -88,7 +92,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   
   // Auto-focus logic
   useEffect(() => {
-    if (showTextarea && !showPrompt) {
+    if (showTextarea && !showPrompt && !showTypeMenu) {
       setTimeout(() => {
         if (block.type === 'hr' && hrRef.current) {
             hrRef.current.focus();
@@ -104,7 +108,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
         }
       }, 50);
     }
-  }, [showTextarea, block.id, showPrompt]);
+  }, [showTextarea, block.id, showPrompt, showTypeMenu]);
 
   // Compute Diff if dirty and not active
   const diffSegments = useMemo(() => {
@@ -125,7 +129,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   };
 
   const getFontClass = () => {
-    if (block.type === 'h1') return 'font-display';
+    if (block.type === 'h1' || block.type === 'h2') return 'font-display';
     switch (typography.fontFamily) {
       case 'sans': return 'font-sans';
       case 'mono': return 'font-mono';
@@ -134,15 +138,21 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   };
 
   const textStyle = {
-    fontSize: block.type === 'h1' ? `${Math.max(typography.fontSize * 2, 24)}px` : `${typography.fontSize}px`,
-    lineHeight: block.type === 'h1' ? '1.2' : '1.8',
+    fontSize: block.type === 'h1' 
+      ? `${Math.max(typography.fontSize * 2, 24)}px` 
+      : block.type === 'h2' 
+        ? `${Math.max(typography.fontSize * 1.5, 20)}px`
+        : `${typography.fontSize}px`,
+    lineHeight: block.type === 'h1' || block.type === 'h2' ? '1.2' : '1.8',
     opacity: readOnly ? typography.contrast * 0.7 : typography.contrast,
   };
 
   const commonClasses = `w-full bg-transparent outline-none border-none transition-all duration-300 ${getFontClass()} ${
     block.type === 'h1' 
       ? 'font-bold mb-6 mt-8 text-black dark:text-white' 
-      : isDirty ? 'text-orange-900 dark:text-orange-100' : 'text-zinc-900 dark:text-white'
+      : block.type === 'h2'
+        ? 'font-bold mb-4 mt-6 text-zinc-800 dark:text-zinc-100'
+        : isDirty ? 'text-orange-900 dark:text-orange-100' : 'text-zinc-900 dark:text-white'
   }`;
 
   // --- CLICK / TAP HANDLER ---
@@ -150,6 +160,10 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
     if (readOnly) return; 
 
     if (showPrompt && (e.target as HTMLElement).closest('.prompt-box')) {
+        return;
+    }
+    
+    if (showTypeMenu && (e.target as HTMLElement).closest('.type-menu')) {
         return;
     }
 
@@ -315,13 +329,46 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
       className={`relative group transition-all duration-300 ease-in-out ${containerClass}`}
       style={{ 
         opacity: (isActive || mode === 'edit') ? 1 : 0.8,
-        zIndex: showPrompt ? 50 : 0
+        // Increased Z-Index for active blocks so toolbar buttons float over preceding content
+        zIndex: isActive ? 30 : (showPrompt || showTypeMenu ? 50 : 0)
       }}
       onClick={handleClick}
     >
        {/* EDIT MODE TOOLS */}
        {!readOnly && mode === 'edit' && !showPrompt && !isProcessing && (
            <div className={`absolute right-0 -top-7 flex flex-row justify-end items-center gap-2 transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} pointer-events-auto z-20`}>
+              
+              {/* Type Switcher */}
+              <div className="relative type-menu">
+                  <button onClick={(e) => { e.stopPropagation(); setShowTypeMenu(!showTypeMenu); }} className="p-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 rounded-full hover:bg-zinc-200 border border-zinc-200" title="Formatting">
+                    <MoreHorizontal size={14} />
+                  </button>
+                  {showTypeMenu && onTypeChange && (
+                      <div className="absolute right-0 top-full mt-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-xl rounded-xl py-1 w-48 overflow-hidden flex flex-col z-50">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); onTypeChange(block.id, 'h1'); setShowTypeMenu(false); }}
+                            className={`flex items-center gap-3 px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-left text-sm ${block.type === 'h1' ? 'text-amber-600 font-bold' : 'text-zinc-600 dark:text-zinc-300'}`}
+                          >
+                             <Heading1 size={14} /> Chapter Title
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); onTypeChange(block.id, 'h2'); setShowTypeMenu(false); }}
+                            className={`flex items-center gap-3 px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-left text-sm ${block.type === 'h2' ? 'text-amber-600 font-bold' : 'text-zinc-600 dark:text-zinc-300'}`}
+                          >
+                             <Heading2 size={14} /> Subchapter Title
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); onTypeChange(block.id, 'p'); setShowTypeMenu(false); }}
+                            className={`flex items-center gap-3 px-4 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-700 text-left text-sm ${block.type === 'p' ? 'text-amber-600 font-bold' : 'text-zinc-600 dark:text-zinc-300'}`}
+                          >
+                             <AlignLeft size={14} /> Text
+                          </button>
+                      </div>
+                  )}
+              </div>
+
+              <div className="w-px h-3 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
+
               <button onClick={(e) => { e.stopPropagation(); setShowPrompt(true); }} className="p-1.5 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-500 rounded-full hover:bg-amber-200 shadow-sm border border-amber-200" title="Rewrite with AI">
                 <Sparkles size={14} />
               </button>
@@ -338,7 +385,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
        )}
 
        {/* WRITE MODE TOOLS */}
-       {!readOnly && mode === 'write' && isActive && !showPrompt && (
+       {!readOnly && mode === 'write' && isActive && !showPrompt && !showTypeMenu && (
           <div className="absolute right-0 -top-7 z-20 animate-in fade-in slide-in-from-bottom-2 duration-300 flex items-center gap-2">
              <button 
                  type="button"
@@ -406,7 +453,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
           }}
           style={textStyle}
           className={`${commonClasses} resize-none ${isRewriting ? 'opacity-50 animate-pulse' : ''}`}
-          placeholder={block.type === 'h1' ? "Chapter Title..." : "Start writing..."}
+          placeholder={block.type === 'h1' ? "Chapter Title..." : block.type === 'h2' ? "Subchapter Title..." : "Start writing..."}
           disabled={isRewriting}
         />
       ) : (

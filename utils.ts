@@ -16,6 +16,9 @@ export const parseTextToBlocks = (text: string): Block[] => {
 
   return segments.map(line => {
     const trimmed = line.trim();
+    if (trimmed.startsWith('##')) {
+      return { id: uuidv4(), type: 'h2', content: trimmed.replace(/^##\s*/, '') };
+    }
     if (trimmed.startsWith('#')) {
       return { id: uuidv4(), type: 'h1', content: trimmed.replace(/^#\s*/, '') };
     }

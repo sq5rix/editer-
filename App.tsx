@@ -30,7 +30,7 @@ const App: React.FC = () => {
   // -- Hooks --
   const { books, currentBookId, setCurrentBookId, handleCreateBook, handleDeleteBook, handleRenameBook } = useBookManager(user);
   const { 
-      blocks, setBlocks, history, redoStack, undo, redo, updateBlock, addBlock, removeBlock, clearAll, importText, pasteText, saveHistory,
+      blocks, setBlocks, history, redoStack, undo, redo, updateBlock, updateBlockType, addBlock, removeBlock, clearAll, importText, pasteText, saveHistory,
       isAutoCorrecting, processingBlockId, performGrammarCheck, originalSnapshot, takeSnapshot, revertToSnapshot
   } = useManuscript(user, currentBookId);
 
@@ -415,8 +415,8 @@ const App: React.FC = () => {
                    </div>
                </div>
                
-               {/* Scrollable Row Content */}
-               <div className="flex-1 overflow-y-auto px-4 pb-20 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-700">
+               {/* Scrollable Row Content - Added pt-12 to prevent top button clipping */}
+               <div className="flex-1 overflow-y-auto px-4 pt-12 pb-20 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-700">
                     {blocks.map((block) => {
                          const snapshotBlock = originalSnapshot.find(b => b.id === block.id);
                          const isDirty = mode === 'edit' && (!snapshotBlock || snapshotBlock.content !== block.content);
@@ -429,6 +429,7 @@ const App: React.FC = () => {
                                         block={block}
                                         isActive={activeBlockId === block.id}
                                         onChange={handleBlockChangeWrapper}
+                                        onTypeChange={updateBlockType}
                                         onPaste={handleBlockPasteWrapper}
                                         onFocus={(id) => { setActiveBlockId(id); setContextBlockId(id); }}
                                         onAnalyze={handleBlockAnalysis}
@@ -517,6 +518,7 @@ const App: React.FC = () => {
                     isActive={activeBlockId === block.id}
                     mode={mode}
                     onChange={handleBlockChangeWrapper}
+                    onTypeChange={updateBlockType}
                     onPaste={handleBlockPasteWrapper}
                     onFocus={setActiveBlockId}
                     onAnalyze={handleBlockAnalysis}
