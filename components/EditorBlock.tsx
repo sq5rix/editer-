@@ -293,7 +293,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   }
   
   // Dynamic Styles
-  let containerClass = 'my-4 pl-4 md:pl-0 ';
+  let containerClass = 'pl-4 md:pl-0 ';
   
   if (isProcessing) {
       // Yellow Pulse
@@ -322,11 +322,17 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
        {/* EDIT MODE TOOLS */}
        {!readOnly && mode === 'edit' && !showPrompt && !isProcessing && (
            <div className={`absolute right-0 -top-7 flex flex-row justify-end items-center gap-2 transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} pointer-events-auto z-20`}>
-              <button onClick={(e) => { e.stopPropagation(); setShowPrompt(true); }} className="p-1.5 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-500 rounded-full hover:bg-amber-200 shadow-sm border border-amber-200">
+              <button onClick={(e) => { e.stopPropagation(); setShowPrompt(true); }} className="p-1.5 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-500 rounded-full hover:bg-amber-200 shadow-sm border border-amber-200" title="Rewrite with AI">
                 <Sparkles size={14} />
               </button>
-              <button onClick={(e) => { e.stopPropagation(); onAnalyze(block.id, 'fluency'); }} className="p-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 rounded-full hover:bg-zinc-200 border border-zinc-200">
+              <button onClick={(e) => { e.stopPropagation(); onAnalyze(block.id, 'fluency'); }} className="p-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 rounded-full hover:bg-zinc-200 border border-zinc-200" title="Fix Fluency">
                 <Wand2 size={14} />
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); onAnalyze(block.id, 'sensory'); }} className="p-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 rounded-full hover:bg-zinc-200 border border-zinc-200" title="Enhance Sensory Details">
+                <Eye size={14} />
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); onAnalyze(block.id, 'show-dont-tell'); }} className="p-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 rounded-full hover:bg-zinc-200 border border-zinc-200" title="Show, Don't Tell">
+                <BookOpen size={14} />
               </button>
            </div>
        )}
@@ -338,6 +344,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
                  type="button"
                  onClick={(e) => { e.stopPropagation(); setShowPrompt(true); }} 
                  className="flex items-center gap-2 px-3 py-1 bg-white dark:bg-zinc-800 text-amber-600 rounded-full hover:bg-amber-50 shadow-sm border border-zinc-200 text-xs font-bold uppercase"
+                 title="AI Rewrite"
              >
                 <Sparkles size={12} /> Rewrite
              </button>

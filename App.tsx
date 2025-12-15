@@ -57,11 +57,6 @@ const App: React.FC = () => {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [researchThreads, setResearchThreads] = useState<ResearchThread[]>([]);
   
-  // Scroll Sync Refs
-  const leftPaneRef = useRef<HTMLDivElement>(null);
-  const rightPaneRef = useRef<HTMLDivElement>(null);
-  const isSyncingScroll = useRef(false);
-
   // Typography Settings
   const [typography, setTypography] = useState<TypographySettings>({
     fontFamily: 'serif',
@@ -348,24 +343,6 @@ const App: React.FC = () => {
       handleCustomPrompt(prompt);
   };
 
-  // -- Scroll Sync --
-  const handleScrollSync = (source: 'left' | 'right') => {
-    if (mode !== 'edit') return;
-    if (isSyncingScroll.current) return;
-    isSyncingScroll.current = true;
-    const left = leftPaneRef.current;
-    const right = rightPaneRef.current;
-    if (left && right) {
-        const src = source === 'left' ? left : right;
-        const dest = source === 'left' ? right : left;
-        const percentage = src.scrollTop / (src.scrollHeight - src.clientHeight);
-        if (dest.scrollHeight > dest.clientHeight) {
-            dest.scrollTop = percentage * (dest.scrollHeight - dest.clientHeight);
-        }
-    }
-    setTimeout(() => { isSyncingScroll.current = false; }, 50);
-  };
-
   return (
     <div 
       className="min-h-screen relative font-sans selection:bg-amber-200 dark:selection:bg-amber-900/50 touch-manipulation"
@@ -425,69 +402,76 @@ const App: React.FC = () => {
         ) : mode === 'analysis' ? (
            <StyleAnalysisView text={blocks.map(b => b.content).join('\n\n')} typography={typography} user={user} bookId={currentBookId} />
         ) : mode === 'edit' ? (
-           <div className="grid grid-cols-2 gap-4 md:gap-8 flex-1 min-h-0">
-               <div className="flex flex-col h-full min-h-0">
-                   <div className="flex-none mb-2 flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">
+           <div className="flex flex-col h-full min-h-0">
+               {/* Headers - Fixed */}
+               <div className="grid grid-cols-2 gap-8 flex-none mb-4 px-4 pr-6">
+                   <div className="flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest pl-4 border-b border-amber-500/20 pb-2">
                        <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
                        Live Editor
                    </div>
-                   <div ref={leftPaneRef} onScroll={() => handleScrollSync('left')} className="flex-1 overflow-y-auto pl-4 pr-4 border-r border-zinc-200 dark:border-zinc-800">
-                        {blocks.map((block) => {
-                             const snapshotBlock = originalSnapshot.find(b => b.id === block.id);
-                             // Dirty is calculated based on snapshot content diff
-                             const isDirty = mode === 'edit' && (!snapshotBlock || snapshotBlock.content !== block.content);
-                             
-                             return (
-                                <EditorBlock
-                                    key={`${block.id}-edit`}
-                                    block={block}
-                                    isActive={activeBlockId === block.id}
-                                    onChange={handleBlockChangeWrapper}
-                                    onPaste={handleBlockPasteWrapper}
-                                    onFocus={(id) => { setActiveBlockId(id); setContextBlockId(id); }}
-                                    onAnalyze={handleBlockAnalysis}
-                                    onRewrite={handleBlockRewrite}
-                                    typography={typography}
-                                    mode="edit" 
-                                    readOnly={isAutoCorrecting}
-                                    onRemove={handleRemoveBlockWrapper}
-                                    onEnter={handleBlockEnterWrapper}
-                                    isDirty={isDirty}
-                                    isProcessing={processingBlockId === block.id}
-                                    originalContent={snapshotBlock?.content || ""}
-                                    searchQuery={searchQuery}
-                                />
-                             );
-                        })}
+                   <div className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest pl-4 border-b border-zinc-200 dark:border-zinc-700 pb-2">
+                       <ArrowRightLeft size={12} />
+                       Original Snapshot
                    </div>
                </div>
-               <div className="flex flex-col h-full min-h-0">
-                   <div className="flex-none mb-2 flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest">
-                       <ArrowRightLeft size={12} />
-                       Original
-                   </div>
-                   <div ref={rightPaneRef} onScroll={() => handleScrollSync('right')} className="flex-1 overflow-y-auto pl-4 opacity-70 hover:opacity-100 transition-opacity">
-                        {originalSnapshot.map((block) => (
-                            <EditorBlock
-                                key={`${block.id}-snapshot`}
-                                block={block}
-                                isActive={false}
-                                mode="edit"
-                                onChange={() => {}}
-                                onFocus={() => {}}
-                                onAnalyze={() => {}}
-                                typography={typography}
-                                readOnly={true}
-                                searchQuery={searchQuery}
-                            />
-                        ))}
-                   </div>
+               
+               {/* Scrollable Row Content */}
+               <div className="flex-1 overflow-y-auto px-4 pb-20 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-700">
+                    {blocks.map((block) => {
+                         const snapshotBlock = originalSnapshot.find(b => b.id === block.id);
+                         const isDirty = mode === 'edit' && (!snapshotBlock || snapshotBlock.content !== block.content);
+                         
+                         return (
+                            <div key={block.id} className="grid grid-cols-2 gap-8 items-start mb-6 group/row">
+                                <div className="min-w-0">
+                                    <EditorBlock
+                                        key={`${block.id}-edit`}
+                                        block={block}
+                                        isActive={activeBlockId === block.id}
+                                        onChange={handleBlockChangeWrapper}
+                                        onPaste={handleBlockPasteWrapper}
+                                        onFocus={(id) => { setActiveBlockId(id); setContextBlockId(id); }}
+                                        onAnalyze={handleBlockAnalysis}
+                                        onRewrite={handleBlockRewrite}
+                                        typography={typography}
+                                        mode="edit" 
+                                        readOnly={isAutoCorrecting}
+                                        onRemove={handleRemoveBlockWrapper}
+                                        onEnter={handleBlockEnterWrapper}
+                                        isDirty={isDirty}
+                                        isProcessing={processingBlockId === block.id}
+                                        originalContent={snapshotBlock?.content || ""}
+                                        searchQuery={searchQuery}
+                                    />
+                                </div>
+                                <div className="min-w-0 opacity-60 group-hover/row:opacity-100 transition-opacity">
+                                    {snapshotBlock ? (
+                                        <EditorBlock
+                                            key={`${snapshotBlock.id}-snapshot`}
+                                            block={snapshotBlock}
+                                            isActive={false}
+                                            mode="edit"
+                                            onChange={() => {}}
+                                            onFocus={() => {}}
+                                            onAnalyze={() => {}}
+                                            typography={typography}
+                                            readOnly={true}
+                                            searchQuery={searchQuery}
+                                        />
+                                    ) : (
+                                        <div className="p-4 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-700 text-xs text-zinc-400 italic text-center mt-4">
+                                            New Paragraph
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                         );
+                    })}
                </div>
            </div>
         ) : mode === 'shuffle' ? (
            <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr] gap-4 md:gap-8">
                <div className="hidden md:block h-full min-h-0">
-                   {/* Pass loaded data into ShuffleSidebar */}
                    <ShuffleSidebar 
                       onInsert={(text) => addBlock(activeBlockId || blocks[blocks.length-1]?.id || uuidv4(), text)} 
                       onNavigate={handleSearchNavigate}
