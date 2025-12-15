@@ -40,7 +40,7 @@ const ModeBtn = ({ id, activeId, icon: Icon, label, onClick }: { id: Mode, activ
           onClick={() => onClick(id)}
           className={`p-2 rounded-full transition-all touch-manipulation flex items-center justify-center ${
               isActive 
-              ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
+              ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm ring-1 ring-black/5 dark:ring-white/10' 
               : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50'
           }`}
           title={label}
@@ -64,7 +64,7 @@ const TopBar: React.FC<TopBarProps> = ({
     const isAuxMode = ['research', 'braindump', 'characters', 'analysis', 'metadata'].includes(mode);
 
     return (
-        <header className="fixed top-0 left-0 w-full z-50 bg-gradient-to-b from-paper via-paper/95 to-transparent dark:from-zinc-950 dark:via-zinc-950/95 h-24 flex items-center shadow-sm border-b border-transparent transition-all">
+        <header className="fixed top-0 left-0 w-full z-[60] bg-paper/90 dark:bg-zinc-950/90 backdrop-blur-xl h-24 flex items-center shadow-sm border-b border-zinc-200/50 dark:border-zinc-800/50 transition-all supports-[backdrop-filter]:bg-paper/75 supports-[backdrop-filter]:dark:bg-zinc-950/75">
             <div className="w-full max-w-7xl mx-auto px-4 md:px-6 flex justify-between items-center gap-4">
                 
                 {/* Left: Brand & Modes */}
@@ -76,7 +76,7 @@ const TopBar: React.FC<TopBarProps> = ({
                         </div>
                     </div>
                     <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-800 mx-2 hidden md:block"></div>
-                    <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 shadow-inner border border-zinc-200 dark:border-zinc-700 overflow-x-auto no-scrollbar max-w-[50vw] md:max-w-none">
+                    <div className="flex bg-zinc-100/50 dark:bg-zinc-800/50 rounded-full p-1 border border-zinc-200/50 dark:border-zinc-700/50 overflow-x-auto no-scrollbar max-w-[50vw] md:max-w-none">
                         <ModeBtn id="metadata" activeId={mode} icon={Book} label="Metadata" onClick={setMode} />
                         <ModeBtn id="braindump" activeId={mode} icon={Brain} label="Braindump" onClick={setMode} />
                         <ModeBtn id="characters" activeId={mode} icon={User} label="Characters" onClick={setMode} />
@@ -101,7 +101,7 @@ const TopBar: React.FC<TopBarProps> = ({
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Find..."
-                            className={`h-9 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-full pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all ${searchQuery ? 'w-48 ring-2 ring-indigo-500/10 border-indigo-300' : 'w-32 focus:w-48'}`}
+                            className={`h-9 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-full pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all ${searchQuery ? 'w-48 ring-2 ring-indigo-500/10 border-indigo-300' : 'w-32 focus:w-48'}`}
                         />
                          {searchQuery && (
                             <button 
