@@ -38,15 +38,14 @@ const ModeBtn = ({ id, activeId, icon: Icon, label, onClick }: { id: Mode, activ
     return (
       <button 
           onClick={() => onClick(id)}
-          className={`px-3 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 transition-all touch-manipulation ${
+          className={`p-2 rounded-full transition-all touch-manipulation flex items-center justify-center ${
               isActive 
               ? 'bg-white dark:bg-zinc-700 text-indigo-600 dark:text-indigo-400 shadow-sm' 
-              : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300'
+              : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300 hover:bg-zinc-200/50 dark:hover:bg-zinc-700/50'
           }`}
           title={label}
       >
-          <Icon size={14} /> 
-          <span className={`${isActive ? 'inline' : 'hidden lg:inline'}`}>{label}</span>
+          <Icon size={18} /> 
       </button>
     );
 };
@@ -77,15 +76,15 @@ const TopBar: React.FC<TopBarProps> = ({
                         </div>
                     </div>
                     <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-800 mx-2 hidden md:block"></div>
-                    <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 shadow-inner border border-zinc-200 dark:border-zinc-700 overflow-x-auto no-scrollbar max-w-[40vw] md:max-w-none">
-                        <ModeBtn id="metadata" activeId={mode} icon={Book} label="Meta" onClick={setMode} />
-                        <ModeBtn id="braindump" activeId={mode} icon={Brain} label="Brain" onClick={setMode} />
-                        <ModeBtn id="characters" activeId={mode} icon={User} label="Chars" onClick={setMode} />
+                    <div className="flex bg-zinc-100 dark:bg-zinc-800 rounded-full p-1 shadow-inner border border-zinc-200 dark:border-zinc-700 overflow-x-auto no-scrollbar max-w-[50vw] md:max-w-none">
+                        <ModeBtn id="metadata" activeId={mode} icon={Book} label="Metadata" onClick={setMode} />
+                        <ModeBtn id="braindump" activeId={mode} icon={Brain} label="Braindump" onClick={setMode} />
+                        <ModeBtn id="characters" activeId={mode} icon={User} label="Characters" onClick={setMode} />
                         <ModeBtn id="research" activeId={mode} icon={Globe} label="Research" onClick={setMode} />
                         <ModeBtn id="write" activeId={mode} icon={PenTool} label="Write" onClick={setMode} />
                         <ModeBtn id="edit" activeId={mode} icon={Edit3} label="Edit" onClick={setMode} />
                         <ModeBtn id="shuffle" activeId={mode} icon={Shuffle} label="Shuffle" onClick={setMode} />
-                        <ModeBtn id="analysis" activeId={mode} icon={Feather} label="Style" onClick={setMode} />
+                        <ModeBtn id="analysis" activeId={mode} icon={Feather} label="Style Analysis" onClick={setMode} />
                     </div>
                 </div>
 
