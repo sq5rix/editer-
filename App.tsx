@@ -31,7 +31,7 @@ const App: React.FC = () => {
   const { books, currentBookId, setCurrentBookId, handleCreateBook, handleDeleteBook, handleRenameBook } = useBookManager(user);
   const { 
       blocks, setBlocks, history, redoStack, undo, redo, updateBlock, updateBlockType, addBlock, removeBlock, clearAll, importText, pasteText, saveHistory,
-      isAutoCorrecting, processingBlockId, performGrammarCheck, originalSnapshot, takeSnapshot, revertToSnapshot
+      isAutoCorrecting, processingBlockId, performGrammarCheck, performBlockQuickFix, originalSnapshot, takeSnapshot, revertToSnapshot
   } = useManuscript(user, currentBookId);
 
   // -- UI State --
@@ -443,6 +443,7 @@ const App: React.FC = () => {
                                         isProcessing={processingBlockId === block.id}
                                         originalContent={snapshotBlock?.content || ""}
                                         searchQuery={searchQuery}
+                                        onQuickFix={performBlockQuickFix}
                                     />
                                 </div>
                                 <div className="min-w-0 opacity-60 group-hover/row:opacity-100 transition-opacity">
@@ -527,6 +528,7 @@ const App: React.FC = () => {
                     onRemove={handleRemoveBlockWrapper}
                     onEnter={handleBlockEnterWrapper}
                     searchQuery={searchQuery}
+                    onQuickFix={performBlockQuickFix}
                 />
             ))}
             {mode === 'write' && (

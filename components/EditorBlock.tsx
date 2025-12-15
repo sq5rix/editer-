@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { Block, TypographySettings, Mode } from '../types';
-import { Eye, BookOpen, GripVertical, Wand2, Sparkles, ArrowRight, X, MapPin, Trash2, Edit, MoreHorizontal, Heading1, Heading2, AlignLeft } from 'lucide-react';
+import { Eye, BookOpen, GripVertical, Wand2, Sparkles, ArrowRight, X, MapPin, Trash2, Edit, MoreHorizontal, Heading1, Heading2, AlignLeft, Bandage } from 'lucide-react';
 import { motion, Reorder, useDragControls, AnimatePresence } from 'framer-motion';
 import { simpleWordDiff } from '../utils';
 
@@ -27,6 +27,7 @@ interface EditorBlockProps {
   isProcessing?: boolean;
   originalContent?: string;
   searchQuery?: string;
+  onQuickFix?: (id: string) => void;
 }
 
 const EditorBlock: React.FC<EditorBlockProps> = ({ 
@@ -49,7 +50,8 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   isDirty,
   isProcessing,
   originalContent,
-  searchQuery = ""
+  searchQuery = "",
+  onQuickFix
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -369,6 +371,14 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
 
               <div className="w-px h-3 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
 
+              <button 
+                  onClick={(e) => { e.stopPropagation(); onQuickFix && onQuickFix(block.id); }} 
+                  className="p-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 rounded-full hover:bg-zinc-200 border border-zinc-200 hover:text-teal-600 dark:hover:text-teal-400" 
+                  title="Quick Fix Typos"
+              >
+                <Bandage size={14} />
+              </button>
+
               <button onClick={(e) => { e.stopPropagation(); setShowPrompt(true); }} className="p-1.5 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-500 rounded-full hover:bg-amber-200 shadow-sm border border-amber-200" title="Rewrite with AI">
                 <Sparkles size={14} />
               </button>
@@ -387,6 +397,14 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
        {/* WRITE MODE TOOLS */}
        {!readOnly && mode === 'write' && isActive && !showPrompt && !showTypeMenu && (
           <div className="absolute right-0 -top-7 z-20 animate-in fade-in slide-in-from-bottom-2 duration-300 flex items-center gap-2">
+             <button 
+                 type="button"
+                 onClick={(e) => { e.stopPropagation(); onQuickFix && onQuickFix(block.id); }} 
+                 className="p-1.5 bg-white text-zinc-400 hover:text-teal-600 hover:bg-teal-50 rounded-full shadow-sm border border-zinc-200 transition-colors"
+                 title="Quick Fix Typos"
+             >
+                <Bandage size={12} />
+             </button>
              <button 
                  type="button"
                  onClick={(e) => { e.stopPropagation(); setShowPrompt(true); }} 

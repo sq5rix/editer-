@@ -223,6 +223,24 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
       }
   };
 
+  const performBlockQuickFix = async (id: string) => {
+      const block = blocks.find(b => b.id === id);
+      if (!block || block.type === 'hr') return;
+
+      setProcessingBlockId(id);
+      try {
+          const corrected = await GeminiService.quickFix(block.content);
+          if (corrected && corrected !== block.content) {
+              saveHistory();
+              setBlocks(prev => prev.map(b => b.id === id ? { ...b, content: corrected } : b));
+          }
+      } catch (e) {
+          console.error(e);
+      } finally {
+          setProcessingBlockId(null);
+      }
+  };
+
   return {
       blocks,
       setBlocks,
@@ -242,6 +260,7 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
       isAutoCorrecting,
       processingBlockId,
       performGrammarCheck,
+      performBlockQuickFix,
       originalSnapshot,
       takeSnapshot,
       revertToSnapshot

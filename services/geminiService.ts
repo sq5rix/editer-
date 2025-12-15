@@ -95,6 +95,28 @@ export const checkGrammar = async (text: string): Promise<string[]> => {
   }
 };
 
+export const quickFix = async (text: string): Promise<string> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: MODEL_FAST,
+      contents: `Correct ONLY obvious typos and grammatical errors in the following text.
+      
+      STRICT RULES:
+      1. Fix spelling mistakes (e.g. "teh" -> "the").
+      2. Fix obvious grammar errors (e.g. "instisted to pay" -> "insisted on paying").
+      3. DO NOT change word choice, tone, or style.
+      4. DO NOT rephrase.
+      5. If the text is correct, return it exactly as is.
+      
+      Text: "${text}"`,
+    });
+    return response.text?.trim() || text;
+  } catch (error) {
+    console.error("QuickFix Error:", error);
+    return text;
+  }
+};
+
 export const autoCorrect = async (text: string): Promise<string> => {
   try {
     const response = await ai.models.generateContent({
