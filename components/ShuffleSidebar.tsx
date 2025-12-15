@@ -12,12 +12,13 @@ interface ShuffleSidebarProps {
   braindumpData: BraindumpItem[];
   characterData: Character[];
   researchData: ResearchThread[];
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
 }
 
-const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, onNavigate, blocks, braindumpData, characterData, researchData }) => {
+const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, onNavigate, blocks, braindumpData, characterData, researchData, searchQuery, setSearchQuery }) => {
   const [activeSourceIndex, setActiveSourceIndex] = useState(0);
   const sources: SourceType[] = ['braindump', 'characters', 'research']; // Manuscript is hidden from tabs, only visible in search
-  const [searchQuery, setSearchQuery] = useState("");
   
   const activeSource = sources[activeSourceIndex];
 
@@ -204,8 +205,6 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, onNavigate, b
           <span>
               {parts.map((part, i) => 
                   // If the part matches our pattern (is one of the tokens), highlight it
-                  // Since split with capturing group returns the separator, odd indices are matches.
-                  // But checking regex test is safer if behavior varies.
                   pattern.test(part)
                   ? <mark key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-inherit rounded-sm px-0.5">{part}</mark> 
                   : <span key={i}>{part}</span>
@@ -243,28 +242,6 @@ const ShuffleSidebar: React.FC<ShuffleSidebarProps> = ({ onInsert, onNavigate, b
               </div>
           </div>
       )}
-
-      {/* Floating Search */}
-      <div className="mb-4 relative px-1">
-        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-zinc-400">
-          <Search size={14} />
-        </div>
-        <input 
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search manuscript & cards..."
-          className={`w-full bg-white dark:bg-zinc-800 border ${searchQuery ? 'border-indigo-400 dark:border-indigo-600 ring-2 ring-indigo-500/10' : 'border-zinc-200 dark:border-zinc-700'} rounded-xl pl-9 pr-8 py-2 text-sm shadow-sm outline-none transition-all`}
-        />
-        {searchQuery && (
-            <button 
-                onClick={() => setSearchQuery("")}
-                className="absolute inset-y-0 right-3 flex items-center text-zinc-400 hover:text-zinc-600"
-            >
-                <X size={14} />
-            </button>
-        )}
-      </div>
 
       {/* List */}
       <div className="flex-1 overflow-y-auto space-y-3 px-1 pb-24 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-700">

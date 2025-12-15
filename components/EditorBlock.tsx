@@ -25,6 +25,7 @@ interface EditorBlockProps {
   isDirty?: boolean;
   isProcessing?: boolean;
   originalContent?: string;
+  searchQuery?: string;
 }
 
 const EditorBlock: React.FC<EditorBlockProps> = ({ 
@@ -45,7 +46,8 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   onEnter,
   isDirty,
   isProcessing,
-  originalContent
+  originalContent,
+  searchQuery = ""
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -193,6 +195,24 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
       if (startPos.current && onShuffleSelect) onShuffleSelect(block.id);
       startPos.current = null;
   };
+  
+  // Highlight Helper
+  const renderContentWithHighlights = (text: string) => {
+      if (!searchQuery.trim()) return text;
+      const tokens = searchQuery.trim().split(/\s+/).filter(t => t.length > 0);
+      if (tokens.length === 0) return text;
+      
+      const escapedTokens = tokens.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      const pattern = new RegExp(`(${escapedTokens.join('|')})`, 'gi');
+      
+      const parts = text.split(pattern);
+      
+      return parts.map((part, i) => 
+        pattern.test(part) 
+        ? <mark key={i} className="bg-yellow-200 dark:bg-yellow-900/50 text-inherit rounded-sm px-0.5">{part}</mark>
+        : part
+      );
+  };
 
   // --- RENDER START ---
   if (mode === 'shuffle') {
@@ -230,7 +250,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
                 className="text-sm text-zinc-900 dark:text-white font-serif leading-relaxed line-clamp-3"
                 style={{ opacity: typography.contrast }}
             >
-                {block.content || <span className="italic opacity-50">Empty block...</span>}
+                {searchQuery ? renderContentWithHighlights(block.content) : (block.content || <span className="italic opacity-50">Empty block...</span>)}
             </div>
           )}
         </div>
@@ -388,7 +408,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
           className={`${commonClasses} whitespace-pre-wrap cursor-text selection:bg-amber-200 dark:selection:bg-amber-900/60`}
           onContextMenu={(e) => !readOnly && e.preventDefault()}
         >
-          {diffSegments ? (
+          {diffSegments && !searchQuery ? (
               <span>
                   {diffSegments.map((seg, idx) => (
                       <span key={idx} className={seg.type === 'added' ? 'text-orange-600 dark:text-orange-400 underline decoration-orange-300 dark:decoration-orange-700 decoration-2 underline-offset-2 bg-orange-50 dark:bg-orange-900/20' : ''}>
@@ -397,7 +417,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
                   ))}
               </span>
           ) : (
-             block.content || <span className="opacity-30 italic">Empty block</span>
+             searchQuery ? renderContentWithHighlights(block.content) : (block.content || <span className="opacity-30 italic">Empty block</span>)
           )}
         </div>
       )}

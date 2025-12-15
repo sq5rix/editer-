@@ -48,6 +48,9 @@ const App: React.FC = () => {
   const [globalCopySuccess, setGlobalCopySuccess] = useState(false);
   const [menuMode, setMenuMode] = useState<'selection' | 'block'>('selection');
   const [contextBlockId, setContextBlockId] = useState<string | null>(null);
+  
+  // -- Global Search State --
+  const [searchQuery, setSearchQuery] = useState("");
 
   // -- Sidebar Data State (Lifted for Shuffle Mode) --
   const [braindumpItems, setBraindumpItems] = useState<BraindumpItem[]>([]);
@@ -401,6 +404,8 @@ const App: React.FC = () => {
           onApprove={takeSnapshot}
           onRevert={revertToSnapshot}
           onSettings={() => setSettingsOpen(true)}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
       />
 
       <main className={`mx-auto relative z-10 transition-all duration-300 flex flex-col ${
@@ -450,6 +455,7 @@ const App: React.FC = () => {
                                     isDirty={isDirty}
                                     isProcessing={processingBlockId === block.id}
                                     originalContent={snapshotBlock?.content || ""}
+                                    searchQuery={searchQuery}
                                 />
                              );
                         })}
@@ -472,6 +478,7 @@ const App: React.FC = () => {
                                 onAnalyze={() => {}}
                                 typography={typography}
                                 readOnly={true}
+                                searchQuery={searchQuery}
                             />
                         ))}
                    </div>
@@ -488,6 +495,8 @@ const App: React.FC = () => {
                       braindumpData={braindumpItems}
                       characterData={characters}
                       researchData={researchThreads}
+                      searchQuery={searchQuery}
+                      setSearchQuery={setSearchQuery}
                    />
                </div>
                <div className="flex flex-col h-full min-h-0 overflow-y-auto pr-2" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const text = e.dataTransfer.getData('text/plain'); if(text) addBlock(uuidv4(), text); }}>
@@ -505,6 +514,7 @@ const App: React.FC = () => {
                             typography={typography}
                             onShuffleSelect={(id) => { setActiveBlockId(id); setMode('write'); }}
                             onShuffleContextMenu={(id, pos) => { setContextBlockId(id); setSelectionRect(pos); setMenuMode('block'); }}
+                            searchQuery={searchQuery}
                         />
                       ))}
                    </Reorder.Group>
@@ -526,6 +536,7 @@ const App: React.FC = () => {
                     typography={typography}
                     onRemove={handleRemoveBlockWrapper}
                     onEnter={handleBlockEnterWrapper}
+                    searchQuery={searchQuery}
                 />
             ))}
             {mode === 'write' && (
