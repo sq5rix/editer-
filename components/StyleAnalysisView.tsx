@@ -12,6 +12,89 @@ interface StyleAnalysisViewProps {
   bookId: string;
 }
 
+// Improved Markdown Formatter for Chat
+const MarkdownText = ({ content }: { content: string }) => {
+  if (!content) return null;
+
+  // Helper for inline styles (bold, italic)
+  const parseInline = (text: string) => {
+    // Split by bold (**...**) then italic (*...*)
+    // We use a regex to capture delimiters while splitting
+    const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
+    return parts.map((part, index) => {
+        // Bold: **text**
+        if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+            return <strong key={index} className="font-bold text-ink dark:text-zinc-100">{part.slice(2, -2)}</strong>;
+        }
+        // Italic: *text*
+        if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+            return <em key={index} className="italic text-zinc-600 dark:text-zinc-400">{part.slice(1, -1)}</em>;
+        }
+        return part;
+    });
+  };
+
+  // Split by double newlines to separate blocks (paragraphs, headers, lists)
+  const blocks = content.split(/\n\n+/);
+
+  return (
+    <div className="space-y-3 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
+      {blocks.map((block, i) => {
+        const trimmed = block.trim();
+        if (!trimmed) return null;
+
+        // Headers
+        if (trimmed.startsWith('# ')) {
+            return <h1 key={i} className="font-display font-bold text-xl text-ink dark:text-zinc-100 mt-4 mb-2 pb-1 border-b border-zinc-200 dark:border-zinc-700">{parseInline(trimmed.slice(2))}</h1>;
+        }
+        if (trimmed.startsWith('## ')) {
+            return <h2 key={i} className="font-display font-bold text-lg text-ink dark:text-zinc-100 mt-3 mb-2">{parseInline(trimmed.slice(3))}</h2>;
+        }
+        if (trimmed.startsWith('### ')) {
+            return <h3 key={i} className="font-sans font-bold text-md text-indigo-600 dark:text-indigo-400 mt-2 mb-1 uppercase tracking-wide">{parseInline(trimmed.slice(4))}</h3>;
+        }
+
+        // Unordered List (starting with * or -)
+        if (trimmed.match(/^[*|-]\s/)) {
+            // Split list items by newline
+            const items = trimmed.split(/\n/).filter(line => line.trim().match(/^[*|-]\s/));
+            return (
+                <ul key={i} className="list-disc list-outside ml-4 space-y-1 marker:text-zinc-400">
+                    {items.map((item, j) => (
+                        <li key={j} className="pl-1">{parseInline(item.replace(/^[*|-]\s+/, ''))}</li>
+                    ))}
+                </ul>
+            );
+        }
+        
+        // Numbered List
+         if (trimmed.match(/^\d+\.\s/)) {
+            const items = trimmed.split(/\n/).filter(line => line.trim().match(/^\d+\.\s/));
+            return (
+                <ol key={i} className="list-decimal list-outside ml-4 space-y-1 marker:text-zinc-400">
+                    {items.map((item, j) => (
+                        <li key={j} className="pl-1">{parseInline(item.replace(/^\d+\.\s+/, ''))}</li>
+                    ))}
+                </ol>
+            );
+        }
+
+        // Regular Paragraph
+        return (
+          <p key={i} className="mb-2">
+             {trimmed.split('\n').map((line, k) => (
+                 <React.Fragment key={k}>
+                     {k > 0 && <br />}
+                     {parseInline(line)}
+                 </React.Fragment>
+             ))}
+          </p>
+        );
+      })}
+    </div>
+  );
+};
+
 const StyleAnalysisView: React.FC<StyleAnalysisViewProps> = ({ text, typography, user, bookId }) => {
   const [analysis, setAnalysis] = useState<StyleAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
@@ -89,11 +172,16 @@ const StyleAnalysisView: React.FC<StyleAnalysisViewProps> = ({ text, typography,
     setLoading(true);
     try {
       const result = await GeminiService.analyzeStyle(text);
-      setAnalysis(result);
-      setLastAnalyzedText(text);
-      setChatHistory([]); // Clear previous chat on new analysis
+      if (result && typeof result === 'object' && !Array.isArray(result)) {
+         setAnalysis(result);
+         setLastAnalyzedText(text);
+         setChatHistory([]); 
+      } else {
+         throw new Error("Invalid analysis format");
+      }
     } catch (e) {
       console.error(e);
+      alert("Style analysis failed to generate. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -284,7 +372,7 @@ const StyleAnalysisView: React.FC<StyleAnalysisViewProps> = ({ text, typography,
                                        ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-900 dark:text-indigo-100 rounded-tr-sm' 
                                        : 'bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-tl-sm'
                                    }`}>
-                                       {msg.content}
+                                       {msg.role === 'model' ? <MarkdownText content={msg.content} /> : msg.content}
                                    </div>
                                </motion.div>
                            ))}

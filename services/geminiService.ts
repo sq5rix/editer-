@@ -8,12 +8,30 @@ const MODEL_TEXT = "gemini-3-pro-preview";
 const MODEL_VISION = "gemini-2.5-flash"; // gemini-2.5-flash is robust for multimodal (OCR)
 const MODEL_FAST = "gemini-2.5-flash"; 
 
-// Helper to strip Markdown code fences if present
+// Helper to strip Markdown code fences if present and extract JSON
 const cleanJson = (text: string | undefined): string => {
-  if (!text) return "[]";
+  if (!text) return "{}";
   let cleaned = text.trim();
-  // Remove markdown code blocks if they exist
-  cleaned = cleaned.replace(/^```(?:json)?/i, "").replace(/```$/, "");
+
+  // 1. Try to find markdown block with regex
+  const jsonBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (jsonBlockMatch) {
+      cleaned = jsonBlockMatch[1];
+  } else {
+      // 2. If no code block, try to find the outer-most JSON structure
+      const firstBrace = cleaned.indexOf('{');
+      const firstBracket = cleaned.indexOf('[');
+      const lastBrace = cleaned.lastIndexOf('}');
+      const lastBracket = cleaned.lastIndexOf(']');
+
+      // Determine if we are looking for an object or an array based on which comes first
+      if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+          if (lastBrace !== -1) cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+      } else if (firstBracket !== -1) {
+          if (lastBracket !== -1) cleaned = cleaned.substring(firstBracket, lastBracket + 1);
+      }
+  }
+
   return cleaned.trim();
 };
 
@@ -439,7 +457,7 @@ export const refineStyleAnalysis = async (analysis: StyleAnalysis, history: {rol
       USER QUESTION:
       "${userPrompt}"
 
-      Answer the user's question based on the analysis provided. Be helpful, specific, and editorial in tone.`,
+      Answer the user's question based on the analysis provided. Be helpful, specific, and editorial in tone. Format your response with Markdown for readability (e.g. use bold for key terms).`,
     });
     return response.text || "";
   } catch (error) {
