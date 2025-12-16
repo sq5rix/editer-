@@ -3,10 +3,11 @@ import { Loader2, ArrowRightLeft } from 'lucide-react';
 import { motion, Reorder, AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 
-import { Theme, TypographySettings, Mode, User as UserType, Suggestion, BraindumpItem, Character, ResearchThread } from './types';
+import { Theme, TypographySettings, Mode, User as UserType, Suggestion, BraindumpItem, Character, ResearchThread, BookMetadata } from './types';
 import { countWords } from './utils';
 import * as GeminiService from './services/geminiService';
 import * as FirebaseService from './services/firebase';
+import * as ExportService from './services/exportService';
 
 import { useBookManager } from './hooks/useBookManager';
 import { useManuscript } from './hooks/useManuscript';
@@ -161,6 +162,31 @@ const App: React.FC = () => {
         : blocks.map(b => b.type === 'hr' ? '---' : b.content).join('\n\n');
     
     copyToClipboard(textToCopy);
+  };
+
+  // -- Export to Word --
+  const handleExport = async () => {
+      setLoading(true);
+      try {
+          // 1. Fetch Metadata from LocalStorage/Cloud (since it's managed in MetadataView)
+          let metadata: BookMetadata = { title: "Untitled", subtitle: "", author: "Author", blurb: "", copyright: "", kdpTags: [] };
+          
+          if (user?.uid) {
+              const doc = await FirebaseService.loadData(user.uid, 'metadata', currentBookId);
+              if (doc && doc.data) metadata = { ...metadata, ...doc.data };
+          } else {
+              const saved = localStorage.getItem(`inkflow_metadata_${currentBookId}`);
+              if (saved) metadata = { ...metadata, ...JSON.parse(saved) };
+          }
+          
+          // 2. Trigger Export
+          await ExportService.exportToWord(blocks, metadata);
+      } catch (err) {
+          console.error(err);
+          alert("Failed to export document.");
+      } finally {
+          setLoading(false);
+      }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -376,6 +402,7 @@ const App: React.FC = () => {
           onCopy={handleGlobalCopy}
           copySuccess={globalCopySuccess}
           onClear={handleClearText}
+          onExport={handleExport}
           onGrammar={handleAutoCorrect}
           isGrammarRunning={isAutoCorrecting}
           onApprove={takeSnapshot}

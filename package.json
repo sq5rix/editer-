@@ -16,7 +16,9 @@
     "uuid": "^13.0.0",
     "framer-motion": "^12.23.25",
     "react-textarea-autosize": "^8.5.9",
-    "firebase": "^12.6.0"
+    "firebase": "^12.6.0",
+    "docx": "8.5.0",
+    "file-saver": "2.0.5"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

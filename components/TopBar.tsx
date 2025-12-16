@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather, Book, ThumbsUp, ThumbsDown, Wand2, Search, X, MoreVertical } from 'lucide-react';
+import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather, Book, ThumbsUp, ThumbsDown, Wand2, Search, X, MoreVertical, Download } from 'lucide-react';
 import { Mode, User as UserType } from '../types';
 import { countWords } from '../utils';
 
@@ -19,6 +19,7 @@ interface TopBarProps {
     onCopy: () => void;
     copySuccess: boolean;
     onClear: () => void;
+    onExport: () => void;
     
     // Edit/Grammar Actions
     onGrammar: () => void;
@@ -53,7 +54,7 @@ const ModeBtn = ({ id, activeId, icon: Icon, label, onClick }: { id: Mode, activ
 const TopBar: React.FC<TopBarProps> = ({
     mode, setMode, user, wordCount,
     onUndo, onRedo, canUndo, canRedo,
-    onImport, onCopy, copySuccess, onClear,
+    onImport, onCopy, copySuccess, onClear, onExport,
     onGrammar, isGrammarRunning, onApprove, onRevert,
     onSettings, searchQuery, setSearchQuery
 }) => {
@@ -135,6 +136,11 @@ const TopBar: React.FC<TopBarProps> = ({
                     {/* Global Copy */}
                     <button onClick={onCopy} className={`p-2 rounded-full transition-all ${copySuccess ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200'}`} title="Copy Content">
                         {copySuccess ? <Check size={18} /> : <Copy size={18} />}
+                    </button>
+
+                    {/* Export Word Doc */}
+                    <button onClick={onExport} className="p-2 rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-blue-600 dark:hover:text-blue-400 transition-all" title="Export to Word">
+                        <Download size={18} />
                     </button>
 
                     {/* Edit Mode Dropdown */}
