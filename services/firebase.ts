@@ -5,16 +5,29 @@ import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "firebase/firestor
 // --- Configuration ---
 // In a real app, these should be individual env vars. 
 // For this environment, we attempt to read a JSON string or fallback to individual keys if available.
-const firebaseConfig = process.env.FIREBASE_CONFIG 
-  ? JSON.parse(process.env.FIREBASE_CONFIG)
-  : {
+let firebaseConfig;
+try {
+  firebaseConfig = process.env.FIREBASE_CONFIG 
+    ? JSON.parse(process.env.FIREBASE_CONFIG)
+    : {
+        apiKey: process.env.FIREBASE_API_KEY || "AIzaSy...", 
+        authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+        appId: process.env.FIREBASE_APP_ID
+      };
+} catch (error) {
+  console.warn("Failed to parse FIREBASE_CONFIG env var:", error);
+  firebaseConfig = {
       apiKey: process.env.FIREBASE_API_KEY || "AIzaSy...", 
       authDomain: process.env.FIREBASE_AUTH_DOMAIN,
       projectId: process.env.FIREBASE_PROJECT_ID,
       storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
       messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
       appId: process.env.FIREBASE_APP_ID
-    };
+  };
+}
 
 // Initialize
 let app;
