@@ -23,6 +23,7 @@ import CharactersView from './components/CharactersView';
 import StyleAnalysisView from './components/StyleAnalysisView';
 import MetadataView from './components/MetadataView';
 import ShuffleSidebar from './components/ShuffleSidebar';
+import OCRModal from './components/OCRModal';
 
 const App: React.FC = () => {
   // -- Auth State --
@@ -50,6 +51,12 @@ const App: React.FC = () => {
   const [menuMode, setMenuMode] = useState<'selection' | 'block'>('selection');
   const [contextBlockId, setContextBlockId] = useState<string | null>(null);
   
+  // -- OCR Modal State --
+  const [ocrModalOpen, setOcrModalOpen] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrImage, setOcrImage] = useState<string | null>(null);
+  const [ocrText, setOcrText] = useState("");
+
   // -- Global Search State --
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -58,6 +65,11 @@ const App: React.FC = () => {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [researchThreads, setResearchThreads] = useState<ResearchThread[]>([]);
   
+  // Scroll Sync Refs
+  const leftPaneRef = useRef<HTMLDivElement>(null);
+  const rightPaneRef = useRef<HTMLDivElement>(null);
+  const isSyncingScroll = useRef(false);
+
   // Typography Settings
   const [typography, setTypography] = useState<TypographySettings>({
     fontFamily: 'serif',
@@ -193,22 +205,41 @@ const App: React.FC = () => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       const reader = new FileReader();
-      setLoading(true);
+      
+      // Init Modal
+      setOcrModalOpen(true);
+      setOcrLoading(true);
+      setOcrText("");
+      
       reader.onloadend = async () => {
         const base64 = reader.result as string;
+        setOcrImage(base64); // Show preview
         const base64Data = base64.split(',')[1];
         try {
           const text = await GeminiService.transcribeImage(base64Data);
-          importText(text);
+          setOcrText(text);
         } catch (err) {
           console.error(err);
-          alert('Failed to read image.');
+          setOcrText("Error: Could not read image.");
         } finally {
-          setLoading(false);
+          setOcrLoading(false);
         }
       };
       reader.readAsDataURL(file);
+      e.target.value = ''; // Reset input
     }
+  };
+
+  const handleOCRInsert = (text: string, insertMode: 'append' | 'cursor') => {
+      if (!text) { setOcrModalOpen(false); return; }
+      
+      if (insertMode === 'cursor' && activeBlockId) {
+          pasteText(activeBlockId, text);
+      } else {
+          // Append to end
+          importText(text);
+      }
+      setOcrModalOpen(false);
   };
 
   // -- Text Selection Logic --
@@ -373,7 +404,7 @@ const App: React.FC = () => {
     <div 
       className="min-h-screen relative font-sans selection:bg-amber-200 dark:selection:bg-amber-900/50 touch-manipulation"
       onClick={(e) => {
-          if ((e.target as HTMLElement).closest('.fixed.z-50')) return;
+          if ((e.target as HTMLElement).closest('.fixed.z-50') || (e.target as HTMLElement).closest('.fixed.z-[200]') || (e.target as HTMLElement).closest('.fixed.z-[210]')) return;
           if (selectionRect && (e.target as HTMLElement).tagName !== 'BUTTON') {
               setSelectionRect(null);
           }
@@ -566,6 +597,16 @@ const App: React.FC = () => {
           </>
         )}
       </main>
+
+      {/* OCR Modal */}
+      <OCRModal 
+          isOpen={ocrModalOpen} 
+          onClose={() => setOcrModalOpen(false)} 
+          onInsert={handleOCRInsert}
+          imageSrc={ocrImage}
+          initialText={ocrText}
+          isLoading={ocrLoading}
+      />
 
       {(mode === 'edit' || (mode === 'shuffle' && menuMode === 'block')) && (
           <FloatingMenu position={selectionRect} menuType={menuMode} onSynonym={() => handleGeminiAction('synonym')} onExpand={() => handleGeminiAction('expand')} onGrammar={() => handleGeminiAction('grammar')} onSensory={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'sensory')} onShowDontTell={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'show-dont-tell')} onSenseOfPlace={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'sense-of-place')} onCustom={handleCustomPrompt} />

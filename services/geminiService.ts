@@ -42,11 +42,19 @@ export const transcribeImage = async (base64Image: string): Promise<string> => {
       contents: {
         parts: [
           { inlineData: { mimeType: "image/jpeg", data: base64Image } },
-          { text: "Transcribe the handwritten text in this image exactly as it appears. Preserve paragraph breaks. Do not add any conversational text." }
+          { text: `You are a professional archivist expert in transcribing difficult handwriting.
+          
+          INSTRUCTIONS:
+          1. Transcribe the text in the image exactly as written.
+          2. Preserve paragraph breaks.
+          3. Do not fix grammar or spelling errors unless they are obviously OCR mistakes.
+          4. If a word is completely illegible, mark it as [?].
+          5. Do not add any conversational filler (e.g. "Here is the text"). Return ONLY the raw text.
+          ` }
         ]
       }
     });
-    return response.text || "";
+    return response.text?.trim() || "";
   } catch (error) {
     console.error("OCR Error:", error);
     throw new Error("Failed to recognize handwriting.");
