@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, TextRun, Header, AlignmentType, LineRuleType, HeadingLevel, PageNumber } from "docx";
+import { Document, Packer, Paragraph, TextRun, Header, AlignmentType, LineRuleType, HeadingLevel, PageNumber, BorderStyle } from "docx";
 import saveAs from "file-saver";
 import { Block, BookMetadata } from "../types";
 
@@ -61,13 +61,19 @@ export const exportToWord = async (blocks: Block[], metadata: BookMetadata) => {
           // Headers are centered
           children.push(createParagraph(text, true));
       } else if (block.type === 'hr') {
-           // Scene break is a centered hash
+           // Scene break is a horizontal line (bottom border of empty paragraph)
            children.push(
             new Paragraph({
-                text: "#",
-                alignment: AlignmentType.CENTER,
+                text: "", 
+                border: {
+                    bottom: {
+                        color: "auto",
+                        space: 1,
+                        style: BorderStyle.SINGLE,
+                        size: 6,
+                    },
+                },
                 spacing: { before: 240, after: 240, line: lineSpacing, lineRule: LineRuleType.AUTO },
-                run: { font: font, size: fontSize }
             })
            );
       } else {

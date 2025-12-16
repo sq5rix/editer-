@@ -257,9 +257,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
         <div className="flex-1 min-w-0 pointer-events-none">
           {block.type === 'hr' ? (
               <div className="flex justify-center items-center py-2 opacity-50">
-                  <div className="h-px w-8 bg-zinc-300 dark:bg-zinc-600"></div>
-                  <div className="mx-2 text-zinc-400 dark:text-zinc-500 text-xs uppercase tracking-widest">Break</div>
-                  <div className="h-px w-8 bg-zinc-300 dark:bg-zinc-600"></div>
+                   <div className="h-px w-full max-w-[200px] bg-zinc-300 dark:bg-zinc-600"></div>
               </div>
           ) : (
             <div 
@@ -280,7 +278,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
             layoutId={!readOnly ? block.id : `${block.id}-readonly`}
             ref={hrRef}
             data-block-id={block.id}
-            className={`relative py-8 my-2 outline-none group cursor-pointer transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}
+            className={`relative py-6 my-2 outline-none group cursor-pointer transition-opacity duration-300 ${isActive ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}
             onClick={handleClick}
             tabIndex={0}
             onKeyDown={(e) => {
@@ -289,15 +287,13 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
                 }
             }}
         >
-             <div className="flex items-center justify-center gap-4 select-none">
-                 <div className="h-px w-12 bg-zinc-300 dark:bg-zinc-700"></div>
-                 <div className="text-zinc-400 dark:text-zinc-600 font-serif italic text-lg tracking-widest">* * *</div>
-                 <div className="h-px w-12 bg-zinc-300 dark:bg-zinc-700"></div>
+             <div className="flex items-center justify-center relative h-6">
+                 <div className="h-px w-full max-w-lg bg-zinc-800 dark:bg-zinc-200 opacity-20"></div>
                  {!readOnly && (
                     <button 
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onRemove && onRemove(block.id); }}
-                        className="absolute right-0 p-1.5 text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                        className="absolute right-0 top-1/2 -translate-y-1/2 p-1.5 text-zinc-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-full transition-all opacity-0 group-hover:opacity-100"
                         title="Remove Break"
                     >
                         <Trash2 size={14} />
