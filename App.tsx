@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Loader2, ArrowRightLeft, GripVertical, Trash2, LayoutTemplate } from 'lucide-react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
@@ -64,7 +63,7 @@ const App: React.FC = () => {
   const [ocrImage, setOcrImage] = useState<string | null>(null);
   const [ocrText, setOcrText] = useState("");
 
-  const [typography, setTypography] = useState<TypographySettings>({ fontFamily: 'serif', fontSize: 18, contrast: 0.95 });
+  const [typography, setTypography] = useState<TypographySettings>({ fontFamily: 'serif', fontSize: 20, contrast: 0.95 });
 
   // -- Auth --
   useEffect(() => {
@@ -208,14 +207,15 @@ const App: React.FC = () => {
     } catch { alert("Analysis Error"); } finally { setLoading(false); }
   };
 
-  const handleCustomPrompt = async (prompt: string) => {
-    let textToAnalyze = selectedText || (contextBlockId && blocks.find(b => b.id === contextBlockId)?.content);
-    if (!textToAnalyze) return;
-    setLoading(true); setSidebarOpen(true); setSuggestion(null); setSelectionRect(null);
+  const handleCustomRewrite = async (blockId: string, prompt: string) => {
+    const block = blocks.find(b => b.id === blockId);
+    if (!block) return;
+    setLoading(true); setSidebarOpen(true); setSuggestion(null);
     try {
-        const results = await GeminiService.customRewrite(textToAnalyze, prompt);
-        setSuggestion({ type: 'custom', originalText: textToAnalyze, options: results });
-    } catch { alert("Custom AI Error"); } finally { setLoading(false); }
+        const results = await GeminiService.customRewrite(block.content, prompt);
+        setSuggestion({ type: 'custom', originalText: block.content, options: results });
+        setContextBlockId(blockId);
+    } catch { alert("Magic draft failed."); } finally { setLoading(false); }
   };
 
   const applySuggestion = (text: string) => {
@@ -246,12 +246,11 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen relative font-sans selection:bg-amber-200 dark:selection:bg-amber-900/50 touch-manipulation flex flex-col overflow-hidden">
-      <div className="fixed inset-0 pointer-events-none opacity-50 dark:opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cream-paper.png')]"></div>
+    <div className="min-h-screen relative font-sans selection:bg-accent/20 dark:selection:bg-accent/40 touch-manipulation flex flex-col overflow-hidden bg-paper dark:bg-zinc-950">
       
       {loading && !sidebarOpen && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/10 backdrop-blur-[2px]">
-             <div className="bg-white dark:bg-zinc-800 p-4 rounded-full shadow-2xl"><Loader2 className="animate-spin text-amber-500" size={32} /></div>
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-paper/20 dark:bg-black/20 backdrop-blur-sm">
+             <div className="bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-2xl ring-1 ring-zinc-200 dark:ring-zinc-800"><Loader2 className="animate-spin text-accent" size={32} /></div>
           </div>
       )}
 
@@ -262,7 +261,7 @@ const App: React.FC = () => {
       />
 
       <main className={`flex-1 relative z-10 transition-all duration-300 flex flex-col pt-20 h-[calc(100vh-5rem)]`}>
-        <div className={`flex flex-1 w-full mx-auto h-full overflow-hidden ${mode === 'edit' || mode === 'shuffle' ? 'max-w-none px-0' : 'max-w-4xl px-6 md:px-12'}`}>
+        <div className={`flex flex-1 w-full mx-auto h-full overflow-hidden ${mode === 'edit' || mode === 'shuffle' ? 'max-w-none px-0' : 'max-w-5xl px-6 md:px-12'}`}>
           {mode === 'shuffle' && (
             <aside className="w-80 border-r border-zinc-200 dark:border-zinc-800 h-full flex flex-col bg-zinc-50/50 dark:bg-zinc-900/10 flex-shrink-0">
               <ShuffleSidebar 
@@ -285,7 +284,7 @@ const App: React.FC = () => {
             </aside>
           )}
 
-          <div className={`flex-1 h-full overflow-y-auto no-scrollbar ${mode === 'edit' || mode === 'shuffle' ? 'px-8 py-8' : 'py-12'}`}>
+          <div className={`flex-1 h-full overflow-y-auto no-scrollbar scroll-smooth ${mode === 'edit' || mode === 'shuffle' ? 'px-8 py-10' : 'py-16'}`}>
             {mode === 'braindump' ? ( <BraindumpView onCopy={setSelectedText} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} />
             ) : mode === 'research' ? ( <ResearchView onCopy={setSelectedText} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} />
             ) : mode === 'characters' ? ( <CharactersView onCopy={setSelectedText} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} manuscriptText={blocks.map(b => b.content).join('\n')} />
@@ -293,53 +292,53 @@ const App: React.FC = () => {
             ) : mode === 'analysis' ? ( <StyleAnalysisView text={blocks.map(b => b.content).join('\n\n')} typography={typography} user={user} bookId={currentBookId} />
             ) : mode === 'shuffle' ? (
               <div className="max-w-4xl mx-auto py-10">
-                 <div className="flex items-center justify-between mb-12 border-b-2 border-zinc-200 dark:border-zinc-800 pb-4">
+                 <div className="flex items-center justify-between mb-12 border-b-2 border-zinc-200 dark:border-zinc-800 pb-6">
                     <div>
-                        <h2 className="font-display font-bold text-2xl text-ink dark:text-zinc-100 uppercase tracking-widest">Structural Shuffle</h2>
-                        <p className="text-xs text-zinc-400 mt-1 uppercase tracking-wider font-mono">Rearrange the narrative flow</p>
+                        <h2 className="font-display font-bold text-3xl text-ink dark:text-zinc-100 uppercase tracking-widest">Structural Edit</h2>
+                        <p className="text-xs text-zinc-400 mt-2 uppercase tracking-[0.2em] font-mono">Reshape the editorial flow</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-3">
                         <button 
                             onClick={partitionBlocks}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-full font-bold text-xs uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-sm active:scale-95"
+                            className="flex items-center gap-2 px-6 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded-full font-bold text-xs uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-sm active:scale-95"
                             title="Split long text into paragraphs"
                         >
-                            <LayoutTemplate size={14} /> Auto-Split
+                            <LayoutTemplate size={16} /> Auto-Split
                         </button>
                         <button 
                             onClick={handleShuffle}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-full font-bold text-xs uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg active:scale-95"
+                            className="flex items-center gap-2 px-7 py-3 bg-accent text-white rounded-full font-bold text-xs uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg active:scale-95"
                         >
-                            Random Shuffle
+                            Transpose
                         </button>
                     </div>
                  </div>
-                 <Reorder.Group axis="y" values={blocks} onReorder={setBlocks} className="space-y-4 pb-40">
+                 <Reorder.Group axis="y" values={blocks} onReorder={setBlocks} className="space-y-6 pb-40">
                     {blocks.map(block => (
                       <Reorder.Item 
                         key={block.id} 
                         value={block}
-                        className="group bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-6 shadow-sm hover:shadow-xl cursor-grab active:cursor-grabbing transition-all border-l-4 border-l-indigo-500/50"
+                        className="group bg-white dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-8 shadow-sm hover:shadow-2xl cursor-grab active:cursor-grabbing transition-all border-l-4 border-l-accent/50"
                       >
-                        <div className="flex items-start gap-4">
-                            <div className="mt-1 text-zinc-300 group-hover:text-indigo-500 transition-colors"><GripVertical size={20} /></div>
+                        <div className="flex items-start gap-6">
+                            <div className="mt-1 text-zinc-300 group-hover:text-accent transition-colors"><GripVertical size={24} /></div>
                             <div className="flex-1">
                                 {block.type === 'hr' ? (
-                                    <div className="h-px w-full bg-zinc-200 dark:bg-zinc-700 my-4"></div>
+                                    <div className="h-0.5 w-full bg-zinc-200 dark:bg-zinc-800 my-4"></div>
                                 ) : (
                                     <p 
-                                        className={`line-clamp-3 font-serif leading-relaxed text-zinc-700 dark:text-zinc-300 select-none ${block.type === 'h1' ? 'font-bold text-xl' : block.type === 'h2' ? 'font-bold text-lg' : ''}`}
+                                        className={`line-clamp-4 font-serif leading-relaxed text-zinc-700 dark:text-zinc-300 select-none ${block.type === 'h1' ? 'font-bold text-2xl' : block.type === 'h2' ? 'font-bold text-xl' : ''}`}
                                         style={{ fontSize: `${typography.fontSize}px` }}
                                     >
-                                        {block.content || <span className="opacity-30 italic">Empty paragraph</span>}
+                                        {block.content || <span className="opacity-30 italic">Empty passage</span>}
                                     </p>
                                 )}
                             </div>
                             <button 
                                 onClick={(e) => { e.stopPropagation(); removeBlock(block.id); }}
-                                className="opacity-0 group-hover:opacity-100 p-2 text-zinc-400 hover:text-red-500 transition-all"
+                                className="opacity-0 group-hover:opacity-100 p-3 text-zinc-400 hover:text-red-500 transition-all"
                             >
-                                <Trash2 size={16} />
+                                <Trash2 size={20} />
                             </button>
                         </div>
                       </Reorder.Item>
@@ -347,19 +346,19 @@ const App: React.FC = () => {
                  </Reorder.Group>
               </div>
             ) : mode === 'edit' ? (
-              <div className="flex flex-col h-full max-w-6xl mx-auto">
-                <div className="grid grid-cols-2 gap-12 flex-none mb-8">
-                   <div className="flex items-center gap-3 text-xs font-bold text-amber-600 uppercase tracking-widest border-b-2 border-amber-500/30 pb-3"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>Live Editor</div>
-                   <div className="flex items-center gap-3 text-xs font-bold text-zinc-400 uppercase tracking-widest border-b-2 border-zinc-200 dark:border-zinc-800 pb-3"><ArrowRightLeft size={12} />Original Snapshot</div>
+              <div className="flex flex-col h-full max-w-7xl mx-auto">
+                <div className="grid grid-cols-2 gap-16 flex-none mb-12">
+                   <div className="flex items-center gap-4 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.3em] border-b-2 border-indigo-500/20 pb-4"><div className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse-soft"></div>Working Draft</div>
+                   <div className="flex items-center gap-4 text-xs font-bold text-zinc-400 uppercase tracking-[0.3em] border-b-2 border-zinc-200 dark:border-zinc-800 pb-4"><ArrowRightLeft size={14} />Archived Reference</div>
                 </div>
-                <div className="space-y-8 pb-32">
+                <div className="space-y-12 pb-40">
                     {blocks.map((block) => {
                          const snap = originalSnapshot.find(b => b.id === block.id);
                          return (
-                            <div key={block.id} className="grid grid-cols-2 gap-12 items-start group/row">
-                                <EditorBlock block={block} isActive={activeBlockId === block.id} onChange={updateBlock} onTypeChange={updateBlockType} onFocus={setActiveBlockId} onAnalyze={handleBlockAnalysis} onRewrite={handleCustomPrompt} typography={typography} mode="edit" isDirty={!snap || snap.content !== block.content} isProcessing={processingBlockId === block.id} originalContent={snap?.content} searchQuery={searchQuery} onQuickFix={performBlockQuickFix} onRemove={removeBlock} onEnter={addBlock} />
-                                <div className="opacity-40 group-hover/row:opacity-100 transition-opacity">
-                                    {snap ? <EditorBlock block={snap} isActive={false} mode="edit" onChange={() => {}} onFocus={() => {}} onAnalyze={() => {}} typography={typography} readOnly={true} /> : <div className="p-4 rounded-lg border border-dashed border-zinc-200 text-xs text-zinc-400 italic text-center">New Block</div>}
+                            <div key={block.id} className="grid grid-cols-2 gap-16 items-start group/row">
+                                <EditorBlock block={block} isActive={activeBlockId === block.id} onChange={updateBlock} onTypeChange={updateBlockType} onFocus={setActiveBlockId} onAnalyze={handleBlockAnalysis} onRewrite={handleCustomRewrite} typography={typography} mode="edit" isDirty={!snap || snap.content !== block.content} isProcessing={processingBlockId === block.id} originalContent={snap?.content} searchQuery={searchQuery} onQuickFix={performBlockQuickFix} onRemove={removeBlock} onEnter={addBlock} />
+                                <div className="opacity-30 group-hover/row:opacity-100 transition-all duration-700">
+                                    {snap ? <EditorBlock block={snap} isActive={false} mode="edit" onChange={() => {}} onFocus={() => {}} onAnalyze={() => {}} typography={typography} readOnly={true} /> : <div className="p-8 rounded-3xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 text-sm text-zinc-400 italic text-center">Fragment Added</div>}
                                 </div>
                             </div>
                          );
@@ -367,7 +366,7 @@ const App: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="space-y-4 pb-32">
+              <div className="space-y-6 pb-40 max-w-4xl mx-auto">
                 {blocks.map(block => (
                   <EditorBlock 
                       key={block.id} 
@@ -378,7 +377,7 @@ const App: React.FC = () => {
                       onTypeChange={updateBlockType} 
                       onFocus={setActiveBlockId} 
                       onAnalyze={handleBlockAnalysis} 
-                      onRewrite={handleCustomPrompt} 
+                      onRewrite={handleCustomRewrite} 
                       typography={typography} 
                       onRemove={removeBlock} 
                       onEnter={addBlock} 
@@ -395,7 +394,7 @@ const App: React.FC = () => {
       <OCRModal isOpen={ocrModalOpen} onClose={() => setOcrModalOpen(false)} onInsert={handleOCRInsert} imageSrc={ocrImage} initialText={ocrText} isLoading={ocrLoading} />
       
       {mode === 'edit' && selectionRect && (
-          <FloatingMenu position={selectionRect} menuType={menuMode} onSynonym={() => handleGeminiAction('synonym')} onExpand={() => handleGeminiAction('expand')} onGrammar={() => handleGeminiAction('grammar')} onSensory={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'sensory')} onShowDontTell={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'show-dont-tell')} onSenseOfPlace={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'sense-of-place')} onCustom={handleCustomPrompt} />
+          <FloatingMenu position={selectionRect} menuType={menuMode} onSynonym={() => handleGeminiAction('synonym')} onExpand={() => handleGeminiAction('expand')} onGrammar={() => handleGeminiAction('grammar')} onSensory={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'sensory')} onShowDontTell={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'show-dont-tell')} onSenseOfPlace={() => contextBlockId && handleBlockAnalysis(contextBlockId, 'sense-of-place')} onCustom={handleCustomRewrite} />
       )}
 
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} suggestions={suggestion} onApply={applySuggestion} loading={loading} />

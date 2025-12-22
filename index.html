@@ -22,14 +22,20 @@
             colors: {
               paper: '#fdfbf7',
               ink: '#1a1a1a',
+              accent: '#6366f1', // indigo-500
             },
             animation: {
               'float': 'float 6s ease-in-out infinite',
+              'pulse-soft': 'pulse-soft 3s ease-in-out infinite',
             },
             keyframes: {
               float: {
                 '0%, 100%': { transform: 'translateY(0)' },
                 '50%': { transform: 'translateY(-10px)' },
+              },
+              'pulse-soft': {
+                '0%, 100%': { opacity: 1 },
+                '50%': { opacity: 0.6 },
               }
             }
           },
@@ -41,40 +47,57 @@
         transition: background-color 0.5s ease, color 0.5s ease;
         -webkit-tap-highlight-color: transparent;
         touch-action: manipulation;
+        background-color: #fdfbf7;
+        color: #1a1a1a;
       }
+      
+      .paper-texture {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.05;
+        background-image: url('https://www.transparenttextures.com/patterns/cream-paper.png');
+        z-index: 1000;
+      }
+
       /* Hide scrollbar for clean UI */
       ::-webkit-scrollbar {
-        width: 8px;
+        width: 6px;
       }
       ::-webkit-scrollbar-track {
         background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: #888;
-        border-radius: 4px;
-        opacity: 0.2;
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
       }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #555;
+      .dark ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
       }
       
-      /* Disable text selection on UI elements to prevent native OS interference */
       .ui-no-select {
         -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
         user-select: none;
       }
 
-      /* Prevent iOS callouts on UI buttons */
       button {
         -webkit-touch-callout: none;
       }
+
+      .manuscript-shadow {
+        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.05);
+      }
       
-      /* Specific class to allow selection but hide the native toolbar/magnifier on iOS */
-      /* Note: This is a bit aggressive but helps favor custom menus */
-      .no-callout {
-          -webkit-touch-callout: none;
+      .dark .manuscript-shadow {
+        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+      }
+
+      /* Clean textarea for big pane focus */
+      textarea {
+        background: transparent;
+        border: none;
+        resize: none;
+        outline: none;
       }
     </style>
   <script type="importmap">
@@ -88,17 +111,15 @@
     "uuid": "https://aistudiocdn.com/uuid@^13.0.0",
     "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.25",
     "react-textarea-autosize": "https://aistudiocdn.com/react-textarea-autosize@^8.5.9",
-    "firebase/app": "https://esm.sh/firebase@10.8.0/app",
-    "firebase/auth": "https://esm.sh/firebase@10.8.0/auth",
-    "firebase/firestore": "https://esm.sh/firebase@10.8.0/firestore",
-    "firebase/": "https://esm.sh/firebase@10.8.0/",
-    "docx": "https://esm.sh/docx@8.5.0",
-    "file-saver": "https://esm.sh/file-saver@2.0.5"
+    "file-saver": "https://esm.sh/file-saver@^2.0.5",
+    "firebase/": "https://esm.sh/firebase@^12.7.0/",
+    "docx": "https://esm.sh/docx@^9.5.1"
   }
 }
 </script>
 </head>
   <body class="bg-paper text-ink dark:bg-zinc-950 dark:text-zinc-200 transition-colors duration-500 overflow-x-hidden">
+    <div class="paper-texture"></div>
     <div id="root"></div>
   </body>
 </html>
