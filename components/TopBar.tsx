@@ -1,3 +1,4 @@
+
 import React, { useRef, useState } from 'react';
 import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Check, Brain, User, Feather, Book, ThumbsUp, ThumbsDown, Wand2, Search, X, MoreVertical, Download } from 'lucide-react';
 import { Mode, User as UserType } from '../types';
@@ -54,15 +55,13 @@ const TopBar: React.FC<TopBarProps> = ({
     const isAuxMode = ['research', 'braindump', 'characters', 'analysis', 'metadata'].includes(mode);
 
     return (
-        <header className="fixed top-0 left-0 w-full z-[60] bg-paper/90 dark:bg-zinc-950/90 backdrop-blur-xl h-24 flex items-center shadow-sm border-b border-zinc-200/50 dark:border-zinc-800/50 transition-all supports-[backdrop-filter]:bg-paper/75 supports-[backdrop-filter]:dark:bg-zinc-950/75">
+        <header className="fixed top-0 left-0 w-full z-[60] bg-paper/90 dark:bg-zinc-950/90 backdrop-blur-xl h-20 flex items-center shadow-sm border-b border-zinc-200/50 dark:border-zinc-800/50 transition-all supports-[backdrop-filter]:bg-paper/75 supports-[backdrop-filter]:dark:bg-zinc-950/75">
             <div className="w-full max-w-7xl mx-auto px-4 md:px-6 flex justify-between items-center gap-4">
                 <div className="flex items-center gap-2 md:gap-4 flex-shrink min-w-0">
                     <div className="hidden md:block">
                         <h1 className="font-display font-bold text-xl tracking-wider text-ink dark:text-zinc-100 leading-none">InkFlow</h1>
                         <div className="flex items-center gap-2 mt-1">
                             <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">{wordCount} Words</div>
-                            <div className="h-2 w-2 rounded-full bg-indigo-400/50"></div>
-                            <div className="text-[9px] font-mono text-indigo-500/70 uppercase tracking-tighter">Gemini 3 Pro</div>
                         </div>
                     </div>
                     <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-800 mx-2 hidden md:block"></div>

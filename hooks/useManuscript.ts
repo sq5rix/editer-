@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Block, User } from '../types';
@@ -101,14 +102,31 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
       setBlocks(prev => prev.map(b => b.id === id ? { ...b, type } : b));
   };
 
-  const addBlock = (afterId: string, content: string = '') => {
+  const addBlock = (afterId: string, cursorPosition: number = -1) => {
       saveHistory();
       const newId = uuidv4();
+      
       setBlocks(prev => {
           const index = prev.findIndex(b => b.id === afterId);
-          if (index === -1) return [...prev, { id: newId, type: 'p', content }];
+          if (index === -1) return [...prev, { id: newId, type: 'p', content: '' }];
+          
+          const targetBlock = prev[index];
           const newBlocks = [...prev];
-          newBlocks.splice(index + 1, 0, { id: newId, type: 'p', content });
+          
+          // If cursor position is provided, split the text
+          if (cursorPosition >= 0) {
+              const textBefore = targetBlock.content.substring(0, cursorPosition);
+              const textAfter = targetBlock.content.substring(cursorPosition);
+              
+              // Update current block with text before cursor
+              newBlocks[index] = { ...targetBlock, content: textBefore };
+              // Insert new block with text after cursor
+              newBlocks.splice(index + 1, 0, { id: newId, type: 'p', content: textAfter });
+          } else {
+              // Standard "Add Empty Block After"
+              newBlocks.splice(index + 1, 0, { id: newId, type: 'p', content: '' });
+          }
+          
           return newBlocks;
       });
       return newId;
@@ -160,6 +178,13 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
         }
         return newBlockList;
       });
+  };
+
+  const partitionBlocks = () => {
+      saveHistory();
+      const allText = blocks.map(b => b.content).join('\n\n');
+      const newBlocks = parseTextToBlocks(allText);
+      if (newBlocks.length > 0) setBlocks(newBlocks);
   };
 
   const takeSnapshot = () => {
@@ -256,6 +281,7 @@ export const useManuscript = (user: (User & { uid?: string }) | null, bookId: st
       importText,
       pasteText,
       saveHistory,
+      partitionBlocks,
       
       isAutoCorrecting,
       processingBlockId,
