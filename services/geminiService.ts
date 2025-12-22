@@ -60,25 +60,6 @@ export const transcribeImage = async (base64Image: string): Promise<string> => {
   }
 };
 
-export const generateNextBlock = async (context: string): Promise<string> => {
-  try {
-    const response = await ai.models.generateContent({
-      model: MODEL_TEXT,
-      contents: `You are an elite editorial writer. Based on the following manuscript context, continue the narrative or argument by generating the next logical paragraph.
-      Maintain the tone, style, and thematic resonance of the existing text.
-      
-      CONTEXT:
-      ${context.slice(-6000)}
-      
-      Return ONLY the new paragraph. No explanations.`,
-    });
-    return response.text?.trim() || "";
-  } catch (error) {
-    console.error("Generation Error:", error);
-    throw new Error("Failed to generate content.");
-  }
-};
-
 export const getSynonyms = async (text: string): Promise<string[]> => {
   try {
     const response = await ai.models.generateContent({

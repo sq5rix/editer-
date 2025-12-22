@@ -127,7 +127,7 @@ const TopBar: React.FC<TopBarProps> = ({
                             <button onClick={onRedo} disabled={!canRedo} className={`p-2 rounded-full transition-all ${!canRedo ? 'text-zinc-300 dark:text-zinc-700 opacity-50' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200'}`} title="Redo">
                                 <RotateCw size={18} />
                             </button>
-                            <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1 hidden sm:block"></div>
+                            <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-800 mx-1 hidden sm:block"></div>
                             {mode !== 'edit' && (
                                 <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200 transition-all hidden sm:block" title="Import Handwriting">
                                     <Camera size={18} />
@@ -187,7 +187,7 @@ const TopBar: React.FC<TopBarProps> = ({
                         </div>
                     )}
 
-                    <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
+                    <div className="w-px h-5 bg-zinc-300 dark:bg-zinc-800 mx-1"></div>
 
                     <button onClick={onSettings} className="p-3 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-full transition-all touch-manipulation text-zinc-600 dark:text-zinc-400 hover:text-ink dark:hover:text-zinc-200" title="Settings">
                         {user ? (
