@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Check, Brain, User, Feather, Book, ThumbsUp, ThumbsDown, Wand2, Search, X, MoreVertical, Download } from 'lucide-react';
 // Import motion and AnimatePresence for the editorial menu animation
@@ -33,15 +32,18 @@ const ModeBtn = ({ id, activeId, icon: Icon, label, onClick }: { id: Mode, activ
     return (
       <button 
           onClick={() => onClick(id)}
-          className={`px-3 py-2 rounded-xl transition-all flex items-center gap-2 ${
+          className={`p-2.5 rounded-xl transition-all flex items-center justify-center relative group/tab ${
               isActive 
               ? 'bg-accent text-white shadow-lg shadow-indigo-500/20 scale-105' 
               : 'text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'
           }`}
           title={label}
       >
-          <Icon size={18} /> 
-          <span className={`text-[10px] font-bold uppercase tracking-widest hidden lg:block ${isActive ? 'block' : 'hidden'}`}>{label}</span>
+          <Icon size={18} />
+          {/* Custom Tooltip */}
+          <span className="absolute top-full mt-2 bg-zinc-900 text-white text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded opacity-0 group-hover/tab:opacity-100 pointer-events-none whitespace-nowrap z-[100] transition-opacity shadow-xl border border-white/10">
+            {label}
+          </span>
       </button>
     );
 };
@@ -53,9 +55,6 @@ const TopBar: React.FC<TopBarProps> = ({
     onGrammar, isGrammarRunning, onApprove, onRevert,
     onSettings, searchQuery, setSearchQuery
 }) => {
-    const fileInputRef = useRef<HTMLTextAreaElement | null>(null);
-    // Note: The fileInputRef was typed as HTMLTextAreaElement but used with input type="file". 
-    // In React this works fine for ref={(el) => ...} but for typing safety it should be HTMLInputElement.
     const fileRef = useRef<HTMLInputElement>(null);
     const [editMenuOpen, setEditMenuOpen] = useState(false);
     const isAuxMode = ['research', 'braindump', 'characters', 'analysis', 'metadata'].includes(mode);
@@ -102,9 +101,11 @@ const TopBar: React.FC<TopBarProps> = ({
                             <button onClick={onRedo} disabled={!canRedo} className={`p-2.5 rounded-xl transition-all ${!canRedo ? 'text-zinc-300 dark:text-zinc-800 opacity-50' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`} title="Redo"><RotateCw size={20} /></button>
                             <div className="w-px h-6 bg-zinc-200 dark:bg-zinc-800 mx-2 hidden sm:block"></div>
                             {mode !== 'edit' && (
-                                <button onClick={() => fileRef.current?.click()} className="p-2.5 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center gap-2" title="Import Handwriting">
+                                <button onClick={() => fileRef.current?.click()} className="p-2.5 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all flex items-center gap-2 group/camera relative" title="Import Handwriting">
                                     <Camera size={20} />
-                                    <span className="text-[10px] font-bold uppercase tracking-widest hidden md:block">Handwriting</span>
+                                    <span className="absolute top-full mt-2 bg-zinc-900 text-white text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded opacity-0 group-hover/camera:opacity-100 pointer-events-none whitespace-nowrap z-[100] transition-opacity shadow-xl border border-white/10">
+                                        Import Handwriting
+                                    </span>
                                     <input type="file" ref={fileRef} onChange={onImport} className="hidden" accept="image/*" />
                                 </button>
                             )}
@@ -112,10 +113,18 @@ const TopBar: React.FC<TopBarProps> = ({
                     )}
 
                     <div className="flex items-center gap-1 bg-white/50 dark:bg-zinc-900/50 p-1 rounded-2xl border border-zinc-200/50 dark:border-zinc-800/50">
-                        <button onClick={onCopy} className={`p-2.5 rounded-xl transition-all ${copySuccess ? 'text-green-500 bg-green-50' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`} title="Copy Content">
+                        <button onClick={onCopy} className={`p-2.5 rounded-xl transition-all ${copySuccess ? 'text-green-500 bg-green-50' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'} group/copy relative`} title="Copy Content">
                             {copySuccess ? <Check size={20} /> : <Copy size={20} />}
+                            <span className="absolute top-full mt-2 right-0 bg-zinc-900 text-white text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded opacity-0 group-hover/copy:opacity-100 pointer-events-none whitespace-nowrap z-[100] transition-opacity shadow-xl border border-white/10">
+                                Copy Content
+                            </span>
                         </button>
-                        <button onClick={onExport} className="p-2.5 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all" title="Download Manuscript"><Download size={20} /></button>
+                        <button onClick={onExport} className="p-2.5 rounded-xl text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all group/export relative" title="Download Manuscript">
+                            <Download size={20} />
+                            <span className="absolute top-full mt-2 right-0 bg-zinc-900 text-white text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded opacity-0 group-hover/export:opacity-100 pointer-events-none whitespace-nowrap z-[100] transition-opacity shadow-xl border border-white/10">
+                                Download Manuscript
+                            </span>
+                        </button>
                     </div>
 
                     {mode === 'edit' && (
@@ -123,12 +132,10 @@ const TopBar: React.FC<TopBarProps> = ({
                             <button onClick={() => setEditMenuOpen(!editMenuOpen)} className={`p-2.5 rounded-xl transition-all ${isGrammarRunning ? 'bg-accent text-white' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'}`} title="Editorial Tools">
                                 {isGrammarRunning ? <Loader2 size={20} className="animate-spin" /> : <MoreVertical size={20} />}
                             </button>
-                            {/* Fixed missing AnimatePresence import */}
                             <AnimatePresence>
                                 {editMenuOpen && (
                                     <>
                                     <div className="fixed inset-0 z-10" onClick={() => setEditMenuOpen(false)} />
-                                    {/* Fixed missing motion import */}
                                     <motion.div 
                                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
