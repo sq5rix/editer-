@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, Check } from 'lucide-react';
@@ -20,9 +21,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, suggestions, onApply
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: "100%", opacity: 0.5 }}
           transition={{ type: "spring", stiffness: 150, damping: 25 }}
-          className="fixed right-0 top-0 h-full w-full md:w-96 bg-paper dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl z-40 flex flex-col pt-16"
+          className="fixed right-0 top-0 h-full w-full md:w-96 bg-paper dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-2xl z-[100] flex flex-col pt-4 md:pt-0"
         >
-          <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
+          <div className="flex items-center justify-between px-6 py-4 h-24 border-b border-zinc-200 dark:border-zinc-800">
             <h2 className="font-display font-bold text-xl dark:text-zinc-100">
               {loading ? "Analyzing..." : "Editorial Suggestions"}
             </h2>

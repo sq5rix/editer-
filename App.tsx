@@ -219,7 +219,7 @@ const App: React.FC = () => {
           onGrammar={performGrammarCheck} isGrammarRunning={isAutoCorrecting} onApprove={takeSnapshot} onRevert={revertToSnapshot} onSettings={() => setSettingsOpen(true)} searchQuery={searchQuery} setSearchQuery={setSearchQuery}
       />
 
-      <main className={`mx-auto relative z-10 transition-all duration-300 flex flex-col ${mode === 'edit' || mode === 'shuffle' ? 'w-full md:max-w-7xl h-[100dvh] pt-28 pb-4 px-4 md:px-8 overflow-hidden' : 'max-w-4xl min-h-screen pt-32 pb-24 px-6 md:px-12'}`}>
+      <main className={`mx-auto relative z-10 transition-all duration-300 flex flex-col ${mode === 'edit' || mode === 'shuffle' ? 'w-full md:max-w-7xl h-[100dvh] pt-40 pb-4 px-4 md:px-8 overflow-hidden' : 'max-w-4xl min-h-screen pt-40 pb-24 px-6 md:px-12'}`}>
         {mode === 'braindump' ? ( <BraindumpView onCopy={setSelectedText} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} />
         ) : mode === 'research' ? ( <ResearchView onCopy={setSelectedText} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} />
         ) : mode === 'characters' ? ( <CharactersView onCopy={setSelectedText} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} manuscriptText={blocks.map(b => b.content).join('\n')} />
@@ -227,9 +227,9 @@ const App: React.FC = () => {
         ) : mode === 'analysis' ? ( <StyleAnalysisView text={blocks.map(b => b.content).join('\n\n')} typography={typography} user={user} bookId={currentBookId} />
         ) : mode === 'edit' ? (
            <div className="flex flex-col h-full min-h-0">
-               <div className="grid grid-cols-2 gap-8 flex-none mb-4 px-4">
-                   <div className="flex items-center gap-2 text-xs font-bold text-amber-600 uppercase tracking-widest border-b border-amber-500/20 pb-2"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>Live Editor</div>
-                   <div className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-200 pb-2"><ArrowRightLeft size={12} />Original Snapshot</div>
+               <div className="grid grid-cols-2 gap-8 flex-none mb-6 px-4">
+                   <div className="flex items-center gap-2 text-xs font-bold text-amber-600 uppercase tracking-widest border-b border-amber-500/20 pb-3"><div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>Live Editor</div>
+                   <div className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest border-b border-zinc-200 pb-3"><ArrowRightLeft size={12} />Original Snapshot</div>
                </div>
                <div className="flex-1 overflow-y-auto px-4 pt-4 pb-20 no-scrollbar">
                     {blocks.map((block) => {
