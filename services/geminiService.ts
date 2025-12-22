@@ -1,12 +1,12 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Block, ResearchSource, Character, StyleAnalysis } from "../types";
 
-const apiKey = process.env.API_KEY;
-const ai = new GoogleGenAI({ apiKey });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const MODEL_TEXT = "gemini-3-pro-preview"; 
-const MODEL_VISION = "gemini-2.5-flash"; // gemini-2.5-flash is robust for multimodal (OCR)
-const MODEL_FAST = "gemini-2.5-flash"; 
+const MODEL_VISION = "gemini-3-flash-preview"; 
+const MODEL_FAST = "gemini-3-flash-preview"; 
 
 // Helper to strip Markdown code fences if present and extract JSON
 const cleanJson = (text: string | undefined): string => {
@@ -24,7 +24,6 @@ const cleanJson = (text: string | undefined): string => {
       const lastBrace = cleaned.lastIndexOf('}');
       const lastBracket = cleaned.lastIndexOf(']');
 
-      // Determine if we are looking for an object or an array based on which comes first
       if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
           if (lastBrace !== -1) cleaned = cleaned.substring(firstBrace, lastBrace + 1);
       } else if (firstBracket !== -1) {
@@ -49,7 +48,7 @@ export const transcribeImage = async (base64Image: string): Promise<string> => {
           2. Preserve paragraph breaks.
           3. Do not fix grammar or spelling errors unless they are obviously OCR mistakes.
           4. If a word is completely illegible, mark it as [?].
-          5. Do not add any conversational filler (e.g. "Here is the text"). Return ONLY the raw text.
+          5. Do not add any conversational filler. Return ONLY the raw text.
           ` }
         ]
       }
@@ -58,6 +57,25 @@ export const transcribeImage = async (base64Image: string): Promise<string> => {
   } catch (error) {
     console.error("OCR Error:", error);
     throw new Error("Failed to recognize handwriting.");
+  }
+};
+
+export const generateNextBlock = async (context: string): Promise<string> => {
+  try {
+    const response = await ai.models.generateContent({
+      model: MODEL_TEXT,
+      contents: `You are an elite editorial writer. Based on the following manuscript context, continue the narrative or argument by generating the next logical paragraph.
+      Maintain the tone, style, and thematic resonance of the existing text.
+      
+      CONTEXT:
+      ${context.slice(-6000)}
+      
+      Return ONLY the new paragraph. No explanations.`,
+    });
+    return response.text?.trim() || "";
+  } catch (error) {
+    console.error("Generation Error:", error);
+    throw new Error("Failed to generate content.");
   }
 };
 
@@ -149,14 +167,13 @@ export const autoCorrect = async (text: string): Promise<string> => {
       model: MODEL_FAST,
       contents: `Correct standard grammar, spelling, and punctuation errors in the following text. 
       Keep the original voice, tone, and meaning exactly as is. 
-      Do not change stylistic choices unless they are objectively incorrect. 
       Return ONLY the corrected text.
       Text: "${text}"`,
     });
     return response.text?.trim() || text;
   } catch (error) {
     console.error("AutoCorrect Error:", error);
-    return text; // Fallback to original
+    return text;
   }
 };
 
@@ -239,10 +256,7 @@ export const researchTopic = async (query: string, previousContext: string = "")
       }
     });
 
-    // Extract text
     const text = response.text || "No result found.";
-
-    // Extract Grounding Metadata (Sources)
     const sources: ResearchSource[] = [];
     const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     
@@ -255,9 +269,7 @@ export const researchTopic = async (query: string, previousContext: string = "")
       }
     });
 
-    // Remove duplicates based on URL
     const uniqueSources = Array.from(new Map(sources.map(s => [s.url, s])).values());
-
     return { content: text, sources: uniqueSources };
 
   } catch (error) {
@@ -270,25 +282,13 @@ export const generateCharacter = async (prompt: string): Promise<Omit<Character,
   try {
     const response = await ai.models.generateContent({
       model: MODEL_TEXT,
-      contents: `You are an expert structural narratologist using Greimas' Actantial Model. 
-      Create a detailed character profile based on this input: "${prompt}".
-      
-      CRITICAL: You must analyze the character through the lens of the Greimas Actantial Model, distinguishing between abstract Actants (functions) and concrete Actors (characters).
-      
-      Assign one of the following functional roles (Actants) based on the input:
-      - Subject: The protagonist driven by desire/quest (Axis of Desire).
-      - Object: The concrete or abstract goal pursued by the Subject.
-      - Sender: The origin/instigator of the quest (Axis of Communication).
-      - Receiver: The ultimate beneficiary of the quest.
-      - Helper: Supports the Subject via resources/allies (Axis of Power).
-      - Opponent: Obstructs the Subject via conflict/barriers.
-
+      contents: `Create a detailed character profile based on this input: "${prompt}". Use Greimas' Actantial Model.
       Return JSON only. Structure:
       {
         "name": "Character Name",
-        "greimasRole": "One of the 6 roles above",
-        "coreDesire": "1 sentence describing their relationship to the Object (if Subject) or their function in the axis.",
-        "description": "A rich, editorial-style paragraph describing appearance, personality, and their structural narrative function."
+        "greimasRole": "One of: Subject, Object, Sender, Receiver, Helper, Opponent",
+        "coreDesire": "1 sentence describing their goal.",
+        "description": "Editorial-style paragraph."
       }`,
       config: {
         responseMimeType: "application/json",
@@ -316,27 +316,10 @@ export const generateCastFromStory = async (storyText: string): Promise<Omit<Cha
   try {
     const response = await ai.models.generateContent({
       model: MODEL_TEXT,
-      contents: `Analyze the following story text using Greimas' Actantial Model. Identify the main Actors and map them to the 6 Actant functions.
-      
-      DEFINITIONS:
-      • Subject: The protagonist driven by desire/quest (Axis of Desire).
-      • Object: The goal/value pursued by the Subject.
-      • Sender: The force/character that instigates the quest (Axis of Communication).
-      • Receiver: The beneficiary of the quest.
-      • Helper: Aids the Subject (Axis of Power).
-      • Opponent: Hinders the Subject.
-
-      Note: If the story is incomplete, infer potential characters or abstract forces (fate, society) to fill missing structural roles (e.g. Sender or Receiver).
-      
+      contents: `Analyze the following story text and identify main characters using Greimas' Actantial Model.
+      Return ONLY a JSON array of objects with: name, greimasRole, coreDesire, description.
       STORY TEXT:
-      "${storyText.substring(0, 15000)}"
-      
-      Return ONLY a JSON array of character objects. Each object must have:
-      - name
-      - greimasRole (One of the 6 roles)
-      - coreDesire (1 sentence describing their structural goal or function)
-      - description (Editorial style description)
-      `,
+      "${storyText.substring(0, 15000)}"`,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -364,29 +347,12 @@ export const generateCastFromStory = async (storyText: string): Promise<Omit<Cha
 
 export const refineCharacter = async (character: Character, userPrompt: string): Promise<string> => {
     try {
-        const context = `
-        Character Name: ${character.name}
-        Greimas Role: ${character.greimasRole}
-        Core Desire: ${character.coreDesire}
-        Description: ${character.description}
-        
-        Previous Conversation:
-        ${character.history.map(m => `${m.role}: ${m.content}`).join('\n')}
-        `;
-
         const response = await ai.models.generateContent({
             model: MODEL_TEXT,
-            contents: `You are a creative writing assistant helping to develop a character based on Greimas' Actantial Model.
-            
-            CONTEXT:
-            ${context}
-
-            USER REQUEST:
-            "${userPrompt}"
-
-            Provide a creative, detailed response that expands on the character. Keep the tone editorial and literary. Ensure suggestions align with their structural role (e.g. Helper should support, Opponent should obstruct). Do NOT return JSON. Return Markdown text.`,
+            contents: `Refine this character: ${character.name}. Request: "${userPrompt}". 
+            Context: ${character.description}. 
+            Return Markdown.`,
         });
-
         return response.text || "";
     } catch (error) {
         console.error("Character Refine Error:", error);
@@ -398,23 +364,8 @@ export const analyzeStyle = async (text: string): Promise<StyleAnalysis> => {
     try {
         const response = await ai.models.generateContent({
             model: MODEL_TEXT,
-            contents: `Analyze the writing style of the provided text. Act as a literary editor.
-            
-            TEXT TO ANALYZE:
-            "${text.substring(0, 10000)}"
-
-            Provide a deep stylistic analysis including:
-            - Voice (e.g., Authoritative, Whimsical, Dry)
-            - Tone (e.g., Optimistic, Cynical, Neutral)
-            - Pacing (e.g., Fast, Methodical, Staccato)
-            - Readability (e.g., Simple, Moderate, Complex, Academic)
-            - Sense of Place (How well is setting evoked? 1 sentence assessment)
-            - 3 Key Strengths
-            - 3 Areas for improvement or stylistic weaknesses
-            - Rhetorical Devices used (up to 4)
-            - A summary paragraph describing the "Style Fingerprint".
-
-            Return JSON only.`,
+            contents: `Analyze the writing style of the text. Return JSON only.
+            TEXT: "${text.substring(0, 10000)}"`,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
@@ -444,28 +395,9 @@ export const analyzeStyle = async (text: string): Promise<StyleAnalysis> => {
 
 export const refineStyleAnalysis = async (analysis: StyleAnalysis, history: {role: string, content: string}[], userPrompt: string): Promise<string> => {
   try {
-    const context = `
-    Voice: ${analysis.voice}
-    Tone: ${analysis.tone}
-    Summary: ${analysis.summary}
-    Strengths: ${analysis.strengths.join(', ')}
-    Weaknesses: ${analysis.weaknesses.join(', ')}
-    
-    History:
-    ${history.map(h => `${h.role.toUpperCase()}: ${h.content}`).join('\n')}
-    `;
-
     const response = await ai.models.generateContent({
       model: MODEL_TEXT,
-      contents: `You are a literary editor discussing a style analysis.
-      
-      CONTEXT:
-      ${context}
-
-      USER QUESTION:
-      "${userPrompt}"
-
-      Answer the user's question based on the analysis provided. Be helpful, specific, and editorial in tone. Format your response with Markdown for readability (e.g. use bold for key terms).`,
+      contents: `Discuss this style analysis. User: "${userPrompt}". Analysis Summary: ${analysis.summary}.`,
     });
     return response.text || "";
   } catch (error) {
@@ -474,18 +406,11 @@ export const refineStyleAnalysis = async (analysis: StyleAnalysis, history: {rol
   }
 };
 
-// -- BOOK METADATA GENERATORS --
-
 export const generateSubtitles = async (title: string, manuscript: string): Promise<string[]> => {
     try {
         const response = await ai.models.generateContent({
             model: MODEL_TEXT,
-            contents: `Generate 5 compelling, market-ready subtitles for a book titled "${title}".
-            
-            MANUSCRIPT EXCERPT:
-            "${manuscript.substring(0, 5000)}"
-            
-            Return ONLY a JSON array of strings.`,
+            contents: `Generate 5 subtitles for "${title}". Manuscript excerpt: "${manuscript.substring(0, 5000)}". Return JSON array.`,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {
@@ -505,12 +430,7 @@ export const generateBlurb = async (title: string, manuscript: string): Promise<
     try {
         const response = await ai.models.generateContent({
             model: MODEL_TEXT,
-            contents: `Write a compelling, professional book blurb (back cover copy) for a book titled "${title}".
-            
-            MANUSCRIPT CONTEXT:
-            "${manuscript.substring(0, 8000)}"
-            
-            The blurb should engage the reader, hint at the core conflict or value, and end with a hook. Return Markdown text.`,
+            contents: `Write a book blurb for "${title}". Context: "${manuscript.substring(0, 8000)}".`,
         });
         return response.text || "";
     } catch (error) {
@@ -524,12 +444,7 @@ export const generateCopyright = async (title: string, author: string): Promise<
         const year = new Date().getFullYear();
         const response = await ai.models.generateContent({
             model: MODEL_FAST,
-            contents: `Generate a standard copyright page text for:
-            Title: "${title}"
-            Author: "${author}"
-            Year: ${year}
-            
-            Include standard disclaimers for fiction or non-fiction (infer from title). Return plain text with proper formatting.`,
+            contents: `Generate copyright text for "${title}" by ${author} (${year}).`,
         });
         return response.text || "";
     } catch (error) {
@@ -542,12 +457,7 @@ export const generateKDPTags = async (title: string, manuscript: string): Promis
     try {
         const response = await ai.models.generateContent({
             model: MODEL_FAST,
-            contents: `Generate 7 optimized Amazon KDP keywords/phrases for a book titled "${title}".
-            
-            CONTEXT:
-            "${manuscript.substring(0, 3000)}"
-            
-            Focus on search intent and genre specifics. Return ONLY a JSON array of 7 strings.`,
+            contents: `Generate 7 KDP tags for "${title}". Excerpt: "${manuscript.substring(0, 3000)}". Return JSON array.`,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {

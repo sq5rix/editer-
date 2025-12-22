@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, ArrowRightLeft } from 'lucide-react';
 import { motion, Reorder, AnimatePresence } from 'framer-motion';
@@ -45,6 +46,7 @@ const App: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [auxContent, setAuxContent] = useState(""); 
   const [globalCopySuccess, setGlobalCopySuccess] = useState(false);
@@ -60,16 +62,11 @@ const App: React.FC = () => {
   // -- Global Search State --
   const [searchQuery, setSearchQuery] = useState("");
 
-  // -- Sidebar Data State (Lifted for Shuffle Mode) --
+  // -- Sidebar Data State --
   const [braindumpItems, setBraindumpItems] = useState<BraindumpItem[]>([]);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [researchThreads, setResearchThreads] = useState<ResearchThread[]>([]);
   
-  // Scroll Sync Refs
-  const leftPaneRef = useRef<HTMLDivElement>(null);
-  const rightPaneRef = useRef<HTMLDivElement>(null);
-  const isSyncingScroll = useRef(false);
-
   // Typography Settings
   const [typography, setTypography] = useState<TypographySettings>({
     fontFamily: 'serif',
@@ -77,7 +74,7 @@ const App: React.FC = () => {
     contrast: 0.95
   });
 
-  // -- Load Aux Data for Shuffle Mode --
+  // -- Load Aux Data --
   useEffect(() => {
       const loadAux = () => {
         try {
@@ -93,7 +90,6 @@ const App: React.FC = () => {
       const interval = setInterval(loadAux, 2000);
       return () => clearInterval(interval);
   }, [currentBookId]);
-
 
   // -- Auth Listener --
   useEffect(() => {
@@ -176,13 +172,10 @@ const App: React.FC = () => {
     copyToClipboard(textToCopy);
   };
 
-  // -- Export to Word --
   const handleExport = async () => {
       setLoading(true);
       try {
-          // 1. Fetch Metadata from LocalStorage/Cloud (since it's managed in MetadataView)
           let metadata: BookMetadata = { title: "Untitled", subtitle: "", author: "Author", blurb: "", copyright: "", kdpTags: [] };
-          
           if (user?.uid) {
               const doc = await FirebaseService.loadData(user.uid, 'metadata', currentBookId);
               if (doc && doc.data) metadata = { ...metadata, ...doc.data };
@@ -190,8 +183,6 @@ const App: React.FC = () => {
               const saved = localStorage.getItem(`inkflow_metadata_${currentBookId}`);
               if (saved) metadata = { ...metadata, ...JSON.parse(saved) };
           }
-          
-          // 2. Trigger Export
           await ExportService.exportToWord(blocks, metadata);
       } catch (err) {
           console.error(err);
@@ -205,15 +196,12 @@ const App: React.FC = () => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       const reader = new FileReader();
-      
-      // Init Modal
       setOcrModalOpen(true);
       setOcrLoading(true);
       setOcrText("");
-      
       reader.onloadend = async () => {
         const base64 = reader.result as string;
-        setOcrImage(base64); // Show preview
+        setOcrImage(base64);
         const base64Data = base64.split(',')[1];
         try {
           const text = await GeminiService.transcribeImage(base64Data);
@@ -226,20 +214,38 @@ const App: React.FC = () => {
         }
       };
       reader.readAsDataURL(file);
-      e.target.value = ''; // Reset input
+      e.target.value = ''; 
     }
   };
 
   const handleOCRInsert = (text: string, insertMode: 'append' | 'cursor') => {
       if (!text) { setOcrModalOpen(false); return; }
-      
       if (insertMode === 'cursor' && activeBlockId) {
           pasteText(activeBlockId, text);
       } else {
-          // Append to end
           importText(text);
       }
       setOcrModalOpen(false);
+  };
+
+  const handleLaunchGeneration = async () => {
+      if (isGenerating) return;
+      setIsGenerating(true);
+      try {
+          // Prepare context from last 10 blocks
+          const context = blocks.slice(-10).map(b => b.content).join('\n\n');
+          const generatedText = await GeminiService.generateNextBlock(context);
+          if (generatedText) {
+              const lastId = blocks[blocks.length - 1]?.id || uuidv4();
+              const newId = addBlock(lastId, generatedText);
+              setActiveBlockId(newId);
+          }
+      } catch (err) {
+          console.error(err);
+          alert("AI Launch failed to generate content.");
+      } finally {
+          setIsGenerating(false);
+      }
   };
 
   // -- Text Selection Logic --
@@ -254,34 +260,28 @@ const App: React.FC = () => {
         }
         return;
       }
-
       const selection = window.getSelection();
       if (!selection || selection.isCollapsed || selection.toString().trim() === '') {
         setSelectionRect(null);
         setSelectedText("");
         return;
       }
-
       const anchorNode = selection.anchorNode;
       const isEditor = anchorNode?.parentElement?.closest('main');
       if (!isEditor) {
           setSelectionRect(null);
           return;
       }
-
       const blockElement = anchorNode?.parentElement?.closest('[data-block-id]');
       const blockId = blockElement?.getAttribute('data-block-id');
       if (blockId) setContextBlockId(blockId);
-
       const range = selection.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       if (rect.width === 0 && rect.height === 0) return;
-
       setSelectionRect({ top: rect.bottom, left: rect.left + (rect.width / 2) });
       setSelectedText(selection.toString());
       setMenuMode('selection');
     };
-
     document.addEventListener('selectionchange', handleSelection);
     window.addEventListener('scroll', handleSelection);
     return () => {
@@ -298,9 +298,8 @@ const App: React.FC = () => {
       if (!block) return;
       const textBefore = block.content.slice(0, cursorPosition);
       const textAfter = block.content.slice(cursorPosition);
-      
-      updateBlock(id, textBefore); // Update current
-      const newId = addBlock(id, textAfter); // Add new after
+      updateBlock(id, textBefore); 
+      const newId = addBlock(id, textAfter); 
       setActiveBlockId(newId);
   };
 
@@ -321,7 +320,6 @@ const App: React.FC = () => {
   };
 
   const handleSearchNavigate = (blockId: string) => {
-      // Must take snapshot before switching to edit mode so "Original" pane has content
       takeSnapshot();
       setMode('edit');
       setActiveBlockId(blockId);
@@ -404,8 +402,9 @@ const App: React.FC = () => {
     <div 
       className="min-h-screen relative font-sans selection:bg-amber-200 dark:selection:bg-amber-900/50 touch-manipulation"
       onClick={(e) => {
-          if ((e.target as HTMLElement).closest('.fixed.z-50') || (e.target as HTMLElement).closest('.fixed.z-[200]') || (e.target as HTMLElement).closest('.fixed.z-[210]')) return;
-          if (selectionRect && (e.target as HTMLElement).tagName !== 'BUTTON') {
+          const target = e.target as HTMLElement;
+          if (target.closest('.fixed.z-50') || target.closest('.fixed.z-\\[200\\]') || target.closest('.fixed.z-\\[210\\]')) return;
+          if (selectionRect && target.tagName !== 'BUTTON') {
               setSelectionRect(null);
           }
       }}
@@ -436,6 +435,8 @@ const App: React.FC = () => {
           onExport={handleExport}
           onGrammar={handleAutoCorrect}
           isGrammarRunning={isAutoCorrecting}
+          onLaunch={handleLaunchGeneration}
+          isGenerating={isGenerating}
           onApprove={takeSnapshot}
           onRevert={revertToSnapshot}
           onSettings={() => setSettingsOpen(true)}
@@ -446,7 +447,7 @@ const App: React.FC = () => {
       <main className={`mx-auto relative z-10 transition-all duration-300 flex flex-col ${
           mode === 'edit' || mode === 'shuffle'
             ? 'w-full md:max-w-7xl h-[100dvh] pt-28 pb-4 px-4 md:px-8 overflow-hidden' 
-            : 'max-w-3xl min-h-screen pt-32 pb-24 px-6 md:px-12'
+            : 'max-w-4xl min-h-screen pt-32 pb-24 px-6 md:px-12'
       }`}>
         
         {mode === 'braindump' ? (
@@ -461,7 +462,6 @@ const App: React.FC = () => {
            <StyleAnalysisView text={blocks.map(b => b.content).join('\n\n')} typography={typography} user={user} bookId={currentBookId} />
         ) : mode === 'edit' ? (
            <div className="flex flex-col h-full min-h-0">
-               {/* Headers - Fixed */}
                <div className="grid grid-cols-2 gap-8 flex-none mb-4 px-4 pr-6">
                    <div className="flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest pl-4 border-b border-amber-500/20 pb-2">
                        <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
@@ -473,7 +473,6 @@ const App: React.FC = () => {
                    </div>
                </div>
                
-               {/* Scrollable Row Content - Added pt-12 to prevent top button clipping */}
                <div className="flex-1 overflow-y-auto px-4 pt-12 pb-20 scrollbar-thin scrollbar-thumb-zinc-200 dark:scrollbar-thumb-zinc-700">
                     {blocks.map((block) => {
                          const snapshotBlock = originalSnapshot.find(b => b.id === block.id);
@@ -598,7 +597,6 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* OCR Modal */}
       <OCRModal 
           isOpen={ocrModalOpen} 
           onClose={() => setOcrModalOpen(false)} 

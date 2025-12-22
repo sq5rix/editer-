@@ -1,7 +1,7 @@
+
 import React, { useRef, useState } from 'react';
-import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather, Book, ThumbsUp, ThumbsDown, Wand2, Search, X, MoreVertical, Download } from 'lucide-react';
+import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather, Book, ThumbsUp, ThumbsDown, Wand2, Search, X, MoreVertical, Download, Zap } from 'lucide-react';
 import { Mode, User as UserType } from '../types';
-import { countWords } from '../utils';
 
 interface TopBarProps {
     mode: Mode;
@@ -26,6 +26,10 @@ interface TopBarProps {
     isGrammarRunning: boolean;
     onApprove: () => void;
     onRevert: () => void;
+    
+    // Launch/Generation
+    onLaunch: () => void;
+    isGenerating: boolean;
     
     onSettings: () => void;
     
@@ -56,12 +60,12 @@ const TopBar: React.FC<TopBarProps> = ({
     onUndo, onRedo, canUndo, canRedo,
     onImport, onCopy, copySuccess, onClear, onExport,
     onGrammar, isGrammarRunning, onApprove, onRevert,
+    onLaunch, isGenerating,
     onSettings, searchQuery, setSearchQuery
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [editMenuOpen, setEditMenuOpen] = useState(false);
 
-    // Helper to check if we are in an auxiliary mode
     const isAuxMode = ['research', 'braindump', 'characters', 'analysis', 'metadata'].includes(mode);
 
     return (
@@ -72,8 +76,14 @@ const TopBar: React.FC<TopBarProps> = ({
                 <div className="flex items-center gap-2 md:gap-4 flex-shrink min-w-0">
                     <div className="hidden md:block">
                         <h1 className="font-display font-bold text-xl tracking-wider text-ink dark:text-zinc-100 leading-none">InkFlow</h1>
-                        <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest mt-1">
-                            {wordCount} Words
+                        <div className="flex items-center gap-2 mt-1">
+                            <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-widest">
+                                {wordCount} Words
+                            </div>
+                            <div className="h-2 w-2 rounded-full bg-indigo-400/50"></div>
+                            <div className="text-[9px] font-mono text-indigo-500/70 uppercase tracking-tighter">
+                                Gemini 3 Pro
+                            </div>
                         </div>
                     </div>
                     <div className="h-6 w-px bg-zinc-300 dark:bg-zinc-800 mx-2 hidden md:block"></div>
@@ -92,8 +102,26 @@ const TopBar: React.FC<TopBarProps> = ({
                 {/* Right: Actions */}
                 <div className="flex gap-1 md:gap-2 items-center flex-shrink-0 ml-auto">
                     
+                    {/* Launch AI Block Generation */}
+                    {!isAuxMode && mode !== 'shuffle' && (
+                        <button 
+                            onClick={onLaunch}
+                            disabled={isGenerating}
+                            className={`flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-all shadow-md group relative overflow-hidden disabled:opacity-50`}
+                            title="Launch AI Block Generation"
+                        >
+                            {isGenerating ? (
+                                <Loader2 size={16} className="animate-spin" />
+                            ) : (
+                                <Zap size={16} className="group-hover:scale-110 transition-transform" />
+                            )}
+                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline">Launch AI</span>
+                            <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+                        </button>
+                    )}
+
                     {/* Search Input (Global) */}
-                    <div className="relative group hidden sm:block mr-2">
+                    <div className="relative group hidden sm:block mx-1">
                         <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-zinc-400">
                            <Search size={14} />
                         </div>
@@ -114,7 +142,6 @@ const TopBar: React.FC<TopBarProps> = ({
                         )}
                     </div>
 
-                    {/* Undo/Redo/Camera - Only in Main Modes */}
                     {!isAuxMode && (
                         <>
                             <button onClick={onUndo} disabled={!canUndo} className={`p-2 rounded-full transition-all ${!canUndo ? 'text-zinc-300 dark:text-zinc-700 opacity-50' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200'}`} title="Undo">
@@ -133,17 +160,14 @@ const TopBar: React.FC<TopBarProps> = ({
                         </>
                     )}
 
-                    {/* Global Copy */}
                     <button onClick={onCopy} className={`p-2 rounded-full transition-all ${copySuccess ? 'text-green-500 bg-green-50 dark:bg-green-900/20' : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-ink dark:hover:text-zinc-200'}`} title="Copy Content">
                         {copySuccess ? <Check size={18} /> : <Copy size={18} />}
                     </button>
 
-                    {/* Export Word Doc */}
                     <button onClick={onExport} className="p-2 rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-blue-600 dark:hover:text-blue-400 transition-all" title="Export to Word">
                         <Download size={18} />
                     </button>
 
-                    {/* Edit Mode Dropdown */}
                     {mode === 'edit' && (
                         <div className="relative">
                             <button 
