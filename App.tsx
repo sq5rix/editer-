@@ -46,7 +46,6 @@ const App: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [auxContent, setAuxContent] = useState(""); 
   const [globalCopySuccess, setGlobalCopySuccess] = useState(false);
@@ -226,26 +225,6 @@ const App: React.FC = () => {
           importText(text);
       }
       setOcrModalOpen(false);
-  };
-
-  const handleLaunchGeneration = async () => {
-      if (isGenerating) return;
-      setIsGenerating(true);
-      try {
-          // Prepare context from last 10 blocks
-          const context = blocks.slice(-10).map(b => b.content).join('\n\n');
-          const generatedText = await GeminiService.generateNextBlock(context);
-          if (generatedText) {
-              const lastId = blocks[blocks.length - 1]?.id || uuidv4();
-              const newId = addBlock(lastId, generatedText);
-              setActiveBlockId(newId);
-          }
-      } catch (err) {
-          console.error(err);
-          alert("AI Launch failed to generate content.");
-      } finally {
-          setIsGenerating(false);
-      }
   };
 
   // -- Text Selection Logic --
@@ -435,8 +414,6 @@ const App: React.FC = () => {
           onExport={handleExport}
           onGrammar={handleAutoCorrect}
           isGrammarRunning={isAutoCorrecting}
-          onLaunch={handleLaunchGeneration}
-          isGenerating={isGenerating}
           onApprove={takeSnapshot}
           onRevert={revertToSnapshot}
           onSettings={() => setSettingsOpen(true)}

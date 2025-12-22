@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Trash2, Check, Brain, User, Feather, Book, ThumbsUp, ThumbsDown, Wand2, Search, X, MoreVertical, Download, Zap } from 'lucide-react';
+import { Camera, Copy, PenTool, Edit3, Shuffle, RotateCcw, RotateCw, Settings, Loader2, Globe, Check, Brain, User, Feather, Book, ThumbsUp, ThumbsDown, Wand2, Search, X, MoreVertical, Download } from 'lucide-react';
 import { Mode, User as UserType } from '../types';
 
 interface TopBarProps {
@@ -26,10 +26,6 @@ interface TopBarProps {
     isGrammarRunning: boolean;
     onApprove: () => void;
     onRevert: () => void;
-    
-    // Launch/Generation
-    onLaunch: () => void;
-    isGenerating: boolean;
     
     onSettings: () => void;
     
@@ -60,7 +56,6 @@ const TopBar: React.FC<TopBarProps> = ({
     onUndo, onRedo, canUndo, canRedo,
     onImport, onCopy, copySuccess, onClear, onExport,
     onGrammar, isGrammarRunning, onApprove, onRevert,
-    onLaunch, isGenerating,
     onSettings, searchQuery, setSearchQuery
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -102,24 +97,6 @@ const TopBar: React.FC<TopBarProps> = ({
                 {/* Right: Actions */}
                 <div className="flex gap-1 md:gap-2 items-center flex-shrink-0 ml-auto">
                     
-                    {/* Launch AI Block Generation */}
-                    {!isAuxMode && mode !== 'shuffle' && (
-                        <button 
-                            onClick={onLaunch}
-                            disabled={isGenerating}
-                            className={`flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-full transition-all shadow-md group relative overflow-hidden disabled:opacity-50`}
-                            title="Launch AI Block Generation"
-                        >
-                            {isGenerating ? (
-                                <Loader2 size={16} className="animate-spin" />
-                            ) : (
-                                <Zap size={16} className="group-hover:scale-110 transition-transform" />
-                            )}
-                            <span className="text-xs font-bold uppercase tracking-wider hidden sm:inline">Launch AI</span>
-                            <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-                        </button>
-                    )}
-
                     {/* Search Input (Global) */}
                     <div className="relative group hidden sm:block mx-1">
                         <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-zinc-400">
