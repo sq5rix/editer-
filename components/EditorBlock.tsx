@@ -61,7 +61,12 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
       if (!isActive) { setShowPrompt(false); setShowTypeMenu(false); }
   }, [isActive]);
 
-  const showTextarea = (mode === 'write' || (mode === 'edit' && !readOnly)) && (isActive && !isProcessing);
+  const isWriteMode = mode === 'write';
+  const isEditMode = mode === 'edit';
+  
+  // In Draft mode (write), we show the textarea if active.
+  // In Polish mode (edit), we show it if active and not read-only.
+  const showTextarea = (isWriteMode || (isEditMode && !readOnly)) && (isActive && !isProcessing);
   
   useEffect(() => {
     if (showTextarea && !showPrompt && !showTypeMenu) {
@@ -79,9 +84,9 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   }, [showTextarea, showPrompt, showTypeMenu]);
 
   const diffSegments = useMemo(() => {
-      if (mode === 'edit' && isDirty && originalContent) return simpleWordDiff(originalContent, block.content);
+      if (isEditMode && isDirty && originalContent) return simpleWordDiff(originalContent, block.content);
       return null;
-  }, [mode, isDirty, originalContent, block.content]);
+  }, [isEditMode, isDirty, originalContent, block.content]);
 
   const handlePromptSubmit = async () => {
       if (!promptText.trim() || !onRewrite) return;
@@ -102,7 +107,8 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   const textStyle = {
     fontSize: block.type === 'h1' ? `${Math.max(typography.fontSize * 2, 32)}px` : block.type === 'h2' ? `${Math.max(typography.fontSize * 1.5, 24)}px` : `${typography.fontSize}px`,
     lineHeight: '1.7',
-    opacity: readOnly ? typography.contrast * 0.6 : typography.contrast,
+    opacity: readOnly ? (typography.contrast || 1) * 0.6 : (typography.contrast || 1),
+    minHeight: '1.7em'
   };
 
   const getCommonClasses = () => {
@@ -125,7 +131,7 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
   }
 
   const containerClasses = [
-    'group/block relative transition-all duration-500 px-6 py-4 rounded-2xl',
+    'group/block relative transition-all duration-500 px-6 py-4 rounded-2xl min-h-[4rem] flex flex-col justify-center',
     isProcessing 
       ? 'bg-amber-50 dark:bg-amber-900/10 border-l-4 border-amber-400 animate-pulse' 
       : isActive 
@@ -194,11 +200,11 @@ const EditorBlock: React.FC<EditorBlockProps> = ({
           placeholder="Start writing your editorial piece..."
         />
       ) : (
-        <div style={textStyle} className={`${getCommonClasses()} whitespace-pre-wrap`}>
+        <div style={textStyle} className={`${getCommonClasses()} whitespace-pre-wrap flex flex-col justify-center`}>
           {diffSegments ? (
               <span>{diffSegments.map((seg, idx) => (<span key={idx} className={seg.type === 'added' ? 'text-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/30 underline decoration-indigo-300' : ''}>{seg.text}</span>))}</span>
           ) : (
-             block.content || <span className="opacity-30 italic font-light">Drafting...</span>
+             block.content || <span className="opacity-30 italic font-light text-zinc-400">Click to draft passage...</span>
           )}
         </div>
       )}

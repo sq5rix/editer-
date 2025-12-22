@@ -140,7 +140,11 @@ const App: React.FC = () => {
     setMode(newMode);
     setSelectionRect(null);
     setSelectedText("");
-  }, [takeSnapshot]);
+    // Auto focus first block if writing
+    if (newMode === 'write' && blocks.length > 0 && !activeBlockId) {
+       setActiveBlockId(blocks[0].id);
+    }
+  }, [takeSnapshot, blocks, activeBlockId]);
 
   const handleGlobalCopy = useCallback(() => {
     const textToCopy = ['research', 'braindump', 'characters', 'metadata'].includes(mode) ? auxContent : blocks.map(b => b.content).join('\n\n');
@@ -242,11 +246,12 @@ const App: React.FC = () => {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    setBlocks(shuffled);
+    // Deep clone to ensure Reorder components recognize the change
+    setBlocks(JSON.parse(JSON.stringify(shuffled)));
   };
 
   return (
-    <div className="min-h-screen relative font-sans selection:bg-accent/20 dark:selection:bg-accent/40 touch-manipulation flex flex-col overflow-hidden bg-paper dark:bg-zinc-950">
+    <div className="h-full relative font-sans selection:bg-accent/20 dark:selection:bg-accent/40 touch-manipulation flex flex-col overflow-hidden bg-paper dark:bg-zinc-950">
       
       {loading && !sidebarOpen && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center bg-paper/20 dark:bg-black/20 backdrop-blur-sm">
@@ -260,8 +265,8 @@ const App: React.FC = () => {
           onGrammar={performGrammarCheck} isGrammarRunning={isAutoCorrecting} onApprove={takeSnapshot} onRevert={revertToSnapshot} onSettings={() => setSettingsOpen(true)} searchQuery={searchQuery} setSearchQuery={setSearchQuery}
       />
 
-      <main className={`flex-1 relative z-10 transition-all duration-300 flex flex-col pt-20 h-[calc(100vh-5rem)]`}>
-        <div className={`flex flex-1 w-full mx-auto h-full overflow-hidden ${mode === 'edit' || mode === 'shuffle' ? 'max-w-none px-0' : 'max-w-5xl px-6 md:px-12'}`}>
+      <main className="flex-1 relative z-10 transition-all duration-300 flex flex-col pt-20 h-[calc(100vh-5rem)] overflow-hidden">
+        <div className={`flex flex-1 w-full mx-auto h-full overflow-hidden ${mode === 'edit' || mode === 'shuffle' ? 'max-w-none px-0' : 'max-w-5xl px-0'}`}>
           {mode === 'shuffle' && (
             <aside className="w-80 border-r border-zinc-200 dark:border-zinc-800 h-full flex flex-col bg-zinc-50/50 dark:bg-zinc-900/10 flex-shrink-0">
               <ShuffleSidebar 
@@ -284,7 +289,7 @@ const App: React.FC = () => {
             </aside>
           )}
 
-          <div className={`flex-1 h-full overflow-y-auto no-scrollbar scroll-smooth ${mode === 'edit' || mode === 'shuffle' ? 'px-8 py-10' : 'py-16'}`}>
+          <div className={`flex-1 h-full overflow-y-auto no-scrollbar scroll-smooth relative ${mode === 'edit' || mode === 'shuffle' ? 'px-4 md:px-8 py-10' : 'px-6 md:px-12 py-16'}`}>
             {mode === 'braindump' ? ( <BraindumpView onCopy={setSelectedText} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} />
             ) : mode === 'research' ? ( <ResearchView onCopy={setSelectedText} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} />
             ) : mode === 'characters' ? ( <CharactersView onCopy={setSelectedText} typography={typography} onActiveContentUpdate={setAuxContent} user={user} bookId={currentBookId} manuscriptText={blocks.map(b => b.content).join('\n')} />
@@ -313,7 +318,7 @@ const App: React.FC = () => {
                         </button>
                     </div>
                  </div>
-                 <Reorder.Group axis="y" values={blocks} onReorder={setBlocks} className="space-y-6 pb-40">
+                 <Reorder.Group axis="y" values={blocks} onReorder={setBlocks} className="space-y-6 pb-40 min-h-full">
                     {blocks.map(block => (
                       <Reorder.Item 
                         key={block.id} 
@@ -322,7 +327,7 @@ const App: React.FC = () => {
                       >
                         <div className="flex items-start gap-6">
                             <div className="mt-1 text-zinc-300 group-hover:text-accent transition-colors"><GripVertical size={24} /></div>
-                            <div className="flex-1">
+                            <div className="flex-1 overflow-hidden">
                                 {block.type === 'hr' ? (
                                     <div className="h-0.5 w-full bg-zinc-200 dark:bg-zinc-800 my-4"></div>
                                 ) : (

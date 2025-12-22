@@ -49,6 +49,8 @@
         touch-action: manipulation;
         background-color: #fdfbf7;
         color: #1a1a1a;
+        height: 100vh;
+        overflow: hidden;
       }
       
       .paper-texture {
@@ -60,7 +62,15 @@
         z-index: 1000;
       }
 
-      /* Hide scrollbar for clean UI */
+      /* Scrollbar utilities */
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
       ::-webkit-scrollbar {
         width: 6px;
       }
@@ -92,7 +102,6 @@
         box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
       }
 
-      /* Clean textarea for big pane focus */
       textarea {
         background: transparent;
         border: none;
@@ -118,8 +127,8 @@
 }
 </script>
 </head>
-  <body class="bg-paper text-ink dark:bg-zinc-950 dark:text-zinc-200 transition-colors duration-500 overflow-x-hidden">
+  <body class="bg-paper text-ink dark:bg-zinc-950 dark:text-zinc-200 transition-colors duration-500 overflow-hidden">
     <div class="paper-texture"></div>
-    <div id="root"></div>
+    <div id="root" class="h-full"></div>
   </body>
 </html>
